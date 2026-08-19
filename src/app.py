@@ -161,8 +161,45 @@ class Application:
 
     # ── Database ───────────────────────────────────────────────
 
-    def _init_database(self) -> None:
-        """Initialise the database schema and seed data."""
+    def _init_database(self, max_retries: int = 3) -> None:
+        """Initialise the database schema and seed data.
+
+        Attempts a pre-flight connection test before the real
+        initialisation.  On failure a dialog offers **Retry** (up to
+        *max_retries* times) or **Run Database Setup** which launches
+        the standalone setup wizard and returns here on success.
+
+        Args:
+            max_retries: How many times the user may click Retry
+                before the option is exhausted.
+        """
+        for attempt in range(1, max_retries + 1):
+            if not DatabaseConnection.test_connection():
+                logger.warning(
+                    "Pre-flight DB check failed (attempt %d/%d)",
+                    attempt, max_retries,
+                )
+                action = self._show_db_error_dialog(
+                    attempt=attempt,
+                    max_retries=max_retries,
+                )
+                if action == "retry":
+                    DatabaseConnection.close_pool()
+                    continue
+                elif action == "setup":
+                    self._launch_setup_wizard()
+                    DatabaseConnection.close_pool()
+                    continue
+                else:  # cancel / window closed
+                    sys.exit(0)
+            else:
+                # Connection good — proceed with schema init
+                break
+        else:
+            # Exhausted retries without a successful connection
+            logger.error("DB pre-flight failed after %d attempts", max_retries)
+            sys.exit(1)
+
         try:
             DatabaseConnection.initialize()
             initialize_database()
@@ -173,11 +210,131 @@ class Application:
             logger.exception("Database initialisation failed")
             messagebox.showerror(
                 "Database Error",
-                "Failed to connect to the database.\n\n"
-                "Please ensure MySQL is running and check the connection "
-                "settings, then try again.",
+                "Failed to initialise the database schema.\n\n"
+                "Full details have been written to the setup log.\n"
+                "Please check the log and try again.",
             )
             sys.exit(1)
+
+    def _show_db_error_dialog(
+        self, attempt: int, max_retries: int,
+    ) -> str:
+        """Show a database connection error dialog with Retry / Setup / Cancel.
+
+        Returns:
+            ``"retry"``, ``"setup"``, or ``"cancel"``.
+        """
+        root = tk.Tk()
+        root.withdraw()
+        root.title("Database Connection")
+        root.geometry("460x260")
+        root.configure(bg="#F0F4F8")
+        root.resizable(False, False)
+
+        remaining = max_retries - attempt
+        frame = tk.Frame(root, bg="#F0F4F8", padx=24, pady=20)
+        frame.pack(fill="both", expand=True)
+
+        # Icon + title
+        tk.Label(
+            frame, text="⚠️", font=("Segoe UI", 32),
+            bg="#F0F4F8", fg="#D97706",
+        ).pack(anchor="w")
+        tk.Label(
+            frame, text="Cannot connect to MySQL",
+            font=("Segoe UI", 13, "bold"),
+            bg="#F0F4F8", fg="#0F172A", anchor="w",
+        ).pack(fill="x", pady=(4, 8))
+        tk.Label(
+            frame, text=(
+                f"The application could not reach the MySQL server at\n"
+                f"{db_config.host}:{db_config.port}.\n\n"
+                f"Please ensure MySQL is installed and running, then\n"
+                f"check the connection settings in your .env file."
+            ),
+            font=("Segoe UI", 10), bg="#F0F4F8", fg="#334155",
+            anchor="w", justify="left", wraplength=400,
+        ).pack(fill="x", pady=(0, 12))
+
+        result = {"action": "cancel"}
+
+        btn_frame = tk.Frame(frame, bg="#F0F4F8")
+        btn_frame.pack(fill="x")
+
+        def _on_retry():
+            result["action"] = "retry"
+            root.destroy()
+
+        def _on_setup():
+            result["action"] = "setup"
+            root.destroy()
+
+        def _on_cancel():
+            result["action"] = "cancel"
+            root.destroy()
+
+        if remaining > 0:
+            tk.Button(
+                btn_frame, text=f"Retry ({remaining} left)",
+                font=("Segoe UI", 10, "bold"), bg="#2563EB", fg="white",
+                activebackground="#1D4ED8", activeforeground="white",
+                relief="flat", padx=16, pady=6, cursor="hand2",
+                command=_on_retry,
+            ).pack(side="left")
+
+        tk.Button(
+            btn_frame, text="Run Database Setup",
+            font=("Segoe UI", 10), bg="#059669", fg="white",
+            activebackground="#047857", activeforeground="white",
+            relief="flat", padx=16, pady=6, cursor="hand2",
+            command=_on_setup,
+        ).pack(side="left", padx=(8, 0))
+
+        tk.Button(
+            btn_frame, text="Exit",
+            font=("Segoe UI", 10), bg="#E2E8F0", fg="#334155",
+            activebackground="#CBD5E1", activeforeground="#0F172A",
+            relief="flat", padx=16, pady=6, cursor="hand2",
+            command=_on_cancel,
+        ).pack(side="right")
+
+        root.mainloop()
+        return result["action"]
+
+    def _launch_setup_wizard(self) -> None:
+        """Launch the standalone database setup wizard.
+
+        Creates a temporary Tk root, shows the setup wizard, and
+        waits for it to complete before returning to the main app.
+        """
+        try:
+            from src.gui.setup.setup_wizard_view import SetupWizardView
+        except ImportError:
+            logger.exception("Setup wizard module not found")
+            messagebox.showerror(
+                "Setup Unavailable",
+                "The database setup wizard could not be loaded.\n"
+                "Please run the setup utility manually:",
+            )
+            return
+
+        wizard_root = tk.Tk()
+        wizard_root.title(f"{app_config.name} — Database Setup")
+        wizard_root.geometry("620x720")
+        wizard_root.configure(bg="#F0F4F8")
+        wizard_root.resizable(False, False)
+
+        def _on_wizard_complete(success: bool) -> None:
+            wizard_root.destroy()
+            if success:
+                messagebox.showinfo(
+                    "Setup Complete",
+                    "Database is ready. The application will now continue.",
+                )
+
+        view = SetupWizardView(wizard_root, on_complete=_on_wizard_complete)
+        view.pack(fill="both", expand=True)
+        wizard_root.mainloop()
 
     # ── First-run setup ────────────────────────────────────────
 

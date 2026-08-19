@@ -1,0 +1,160 @@
+# ============================================================================
+# Windows Build + Installer — Hospital Management System
+# ============================================================================
+#
+# PREREQUISITE: A GitHub remote must exist and the source code must be pushed
+# before this workflow can run.  If the repository has no remote, create one
+# via GitHub's web UI or the `gh` CLI, then push:
+#
+#     git remote add origin https://github.com/<you>/HospitalSchedulingSystem.git
+#     git push -u origin main
+#
+# TRIGGERS
+# --------
+# • Pushing a version tag (e.g. v1.0.0) starts a release build automatically.
+# • The "Run workflow" button on the Actions tab triggers a manual build.
+#
+# WHAT IT DOES
+# ------------
+# 1. Checks out the repo on a Windows runner with Python 3.12.
+# 2. Installs runtime + dev dependencies (dev deps for the test step only).
+# 3. Runs the full test suite — the build is aborted if any test fails.
+# 4. Builds HospitalScheduler.exe and HMS-Setup.exe via PyInstaller.
+# 5. Compiles the Inno Setup installer (.iss → .exe).
+# 6. Uploads the installer as the final artifact.
+#
+# ⚠️  VERIFICATION GAP — READ BEFORE DEPLOYING
+# --------------------------------------------
+# CI success alone does NOT prove the exe works on a real Windows machine.
+# The built installer must be tested on:
+#   • A Windows 10/11 VM (VirtualBox or VMware — both free for personal use), OR
+#   • A physical Windows machine.
+#
+# Specific things to verify after downloading the artifact:
+#   • The installer launches and displays the LICENSE.
+#   • Database Setup wizard runs after installation completes.
+#   • The main app launches from the Start Menu shortcut.
+#   • Analytics charts render (matplotlib + TkAgg backend works).
+#   • Uploading a patient document succeeds (Pillow ImageTk works).
+#   • The calendar date-picker works (tkcalendar + babel locale data).
+#   • Uninstaller asks about removing user data directory.
+#
+# Do NOT consider the app "Windows-ready" until at least the above
+# checklist has been manually verified.
+# ============================================================================
+
+name: Build Windows Installer
+
+on:
+  push:
+    tags:
+      - 'v*'          # e.g. v1.0.0, v1.2.3-beta
+  workflow_dispatch:   # manual trigger from Actions tab
+
+env:
+  PYTHON_VERSION: '3.12'
+
+jobs:
+  build:
+    name: Build Windows installer
+    runs-on: windows-latest
+    timeout-minutes: 45
+
+    steps:
+      # ── 1. Checkout ────────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── 2. Python setup ───────────────────────────────────────
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      # ── 3. Install dependencies ───────────────────────────────
+      #    Runtime deps are what get bundled into the exe.
+      #    Dev deps (pytest, black, etc.) are only for the test step.
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      # ── 4. Run test suite (fail-fast) ─────────────────────────
+      #    The build is aborted if any test fails — we never ship
+      #    broken code.
+      - name: Run tests
+        run: python -m pytest tests/ -x -q --tb=short
+
+      # ── 5. Extract version from tag (if present) ──────────────
+      - name: Extract version
+        id: version
+        shell: bash
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            VERSION="${GITHUB_REF#refs/tags/v}"
+          else
+            VERSION="dev-$(git rev-parse --short HEAD)"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Building version: $VERSION"
+
+      # ── 6. Build main application with PyInstaller ────────────
+      - name: Build HospitalScheduler.exe
+        run: pyinstaller hms.spec --noconfirm
+
+      # ── 7. Build setup utility with PyInstaller ───────────────
+      - name: Build HMS-Setup.exe
+        run: pyinstaller hms-setup.spec --noconfirm
+
+      # ── 8. Verify build outputs ───────────────────────────────
+      - name: Verify build outputs
+        shell: bash
+        run: |
+          for EXE in dist/HospitalScheduler/HospitalScheduler.exe dist/HMS-Setup/HMS-Setup.exe; do
+            if [ ! -f "$EXE" ]; then
+              echo "::error::$EXE not found"
+              exit 1
+            fi
+            echo "Verified: $EXE"
+            ls -lh "$EXE"
+          done
+
+      # ── 9. Compile Inno Setup installer ───────────────────────
+      #    ISCC.exe is pre-installed on windows-latest runners.
+      - name: Compile installer (Inno Setup)
+        run: |
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "installer\windows\setup.iss"
+        shell: pwsh
+
+      # ── 10. Verify installer exists ────────────────────────────
+      - name: Verify installer output
+        shell: bash
+        run: |
+          INSTALLER="dist/HospitalScheduler-${{ steps.version.outputs.version }}-Setup.exe"
+          if [ ! -f "$INSTALLER" ]; then
+            echo "::error::Installer not found at $INSTALLER"
+            ls -la dist/
+            exit 1
+          fi
+          echo "Installer verified: $INSTALLER"
+          ls -lh "$INSTALLER"
+
+      # ── 11. Upload installer artifact ──────────────────────────
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: hms-installer-${{ steps.version.outputs.version }}
+          path: dist/HospitalScheduler-*-Setup.exe
+          retention-days: 30
+          if-no-files-found: error
+
+      # ── 12. Also upload raw PyInstaller output (backup) ────────
+      - name: Upload raw build (backup)
+        uses: actions/upload-artifact@v4
+        with:
+          name: hms-windows-${{ steps.version.outputs.version }}
+          path: dist/HospitalScheduler/
+          retention-days: 14
+          if-no-files-found: error
