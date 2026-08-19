@@ -1,0 +1,29 @@
+# ── Secrets ───────────────────────────────────────────────────
+# Never commit environment files — they contain DB credentials.
+.env
+.env.*
+!.env.example
+
+# ── Python ────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# ── Runtime data ──────────────────────────────────────────────
+logs/
+reports/
+assets/test_reports/
+assets/patient_documents/
+.remember_token
+
+# ── OS / editor ───────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

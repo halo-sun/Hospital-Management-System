@@ -1,0 +1,33 @@
+# Core Dependencies
+mysql-connector-python>=8.2.0
+bcrypt>=4.1.2
+python-dotenv>=1.0.1
+
+# GUI Framework
+# Pinned exactly: matplotlib's TkAgg backend requires PIL.ImageTk,
+# which the distro (apt) Pillow build omits — a pip wheel must shadow it.
+tkcalendar==1.6.1
+Pillow==12.3.0
+
+# Reporting & Export
+reportlab>=4.0.9
+openpyxl>=3.1.2
+
+# Analytics & Visualization
+# Pinned exactly — matplotlib is lazily imported by the analytics
+# charts; a missing/mismatched version silently blanks the dashboard
+# (see chart_widget.py).  Keep in sync with what `pip install` resolves
+# in the dev environment.
+matplotlib==3.11.1
+numpy==2.5.2
+
+# Utilities
+python-dateutil>=2.8.2
+pytz>=2024.1
+
+# Development
+pytest>=7.4.4
+pytest-cov>=4.1.0
+black>=23.12.0
+flake8>=7.0.0
+mypy>=1.8.0
