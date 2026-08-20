@@ -215,15 +215,47 @@ class TestSessionManagement:
         service = AuthService(user_repo=mock_user_repo, token_manager=mock_token_manager)
         assert service.is_session_expired() is False
 
-    def test_session_elapsed_minutes(self, mock_user_repo: MagicMock, mock_token_manager: MagicMock) -> None:
-        """session_elapsed_minutes returns a positive value after login."""
+    def test_session_elapsed_minutes_non_negative(self, mock_user_repo: MagicMock, mock_token_manager: MagicMock) -> None:
+        """session_elapsed_minutes is non-negative immediately after login.
+
+        On fast machines (especially Windows CI) zero measurable wall-clock
+        time may pass between login and the check, so elapsed == 0.0 is
+        perfectly valid.
+        """
         user = make_user_dict()
         mock_user_repo.find_by_username.return_value = user
         service = AuthService(user_repo=mock_user_repo, token_manager=mock_token_manager)
         service.login("admin", "password")
 
         elapsed = service.session_elapsed_minutes
-        assert elapsed > 0
+        assert elapsed >= 0
+
+    @patch("src.services.auth_service.datetime")
+    def test_session_elapsed_minutes_after_delay(
+        self,
+        mock_dt: MagicMock,
+        mock_user_repo: MagicMock,
+        mock_token_manager: MagicMock,
+    ) -> None:
+        """elapsed_minutes reflects a known mocked time advance."""
+        fixed_now = datetime(2025, 1, 1, 12, 0, 0)
+        mock_dt.now.return_value = fixed_now
+        mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
+
+        user = make_user_dict()
+        mock_user_repo.find_by_username.return_value = user
+        service = AuthService(user_repo=mock_user_repo, token_manager=mock_token_manager)
+        service.login("admin", "password")
+
+        # Advance the mocked clock by 3.5 minutes
+        mock_dt.now.return_value = fixed_now + timedelta(minutes=3, seconds=30)
+        elapsed = service.session_elapsed_minutes
+        assert abs(elapsed - 3.5) < 0.01
+
+        # Advance another 5 minutes
+        mock_dt.now.return_value = fixed_now + timedelta(minutes=8, seconds=30)
+        elapsed = service.session_elapsed_minutes
+        assert abs(elapsed - 8.5) < 0.01
 
     def test_session_elapsed_no_session(self, mock_user_repo: MagicMock, mock_token_manager: MagicMock) -> None:
         """Without a session, elapsed minutes is 0."""
