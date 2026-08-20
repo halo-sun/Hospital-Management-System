@@ -57,6 +57,9 @@ class PatientService:
         data["patient_id"] = patient_id
         data["registered_at"] = datetime.now()
 
+        # Convert DOB string to date object for MySQL DATE column
+        self._convert_dob(data)
+
         self._patient_repo.create_patient(data)
         logger.info("Patient registered: %s - %s", patient_id, data.get("full_name"))
         return True, f"Patient registered with ID: {patient_id}", patient_id
@@ -93,9 +96,31 @@ class PatientService:
             if dup_email and dup_email.get("patient_id") != patient_id:
                 return False, "Another patient with this email address already exists."
 
+        # Convert DOB string to date object for MySQL DATE column
+        self._convert_dob(data)
+
         self._patient_repo.update_patient(patient_id, data)
         logger.info("Patient updated: %s", patient_id)
         return True, "Patient updated successfully."
+
+    @staticmethod
+    def _convert_dob(data: Dict[str, Any]) -> None:
+        """Convert a DOB string to a date object for DB storage.
+
+        Mutates *data* in place: if ``date_of_birth`` is a string,
+        it is parsed into a ``date`` object so MySQL's DATE column
+        receives the correct type regardless of the display format
+        the user entered (DD-MM-YYYY, YYYY-MM-DD, etc.).
+
+        Args:
+            data: Patient data dictionary (mutated in place).
+        """
+        from src.utils.formatters import _parse_date_string
+        dob = data.get("date_of_birth")
+        if isinstance(dob, str) and dob.strip():
+            parsed = _parse_date_string(dob)
+            if parsed is not None:
+                data["date_of_birth"] = parsed
 
     def get_patient(self, patient_id: str) -> Optional[Dict[str, Any]]:
         """Get a patient record by ID.

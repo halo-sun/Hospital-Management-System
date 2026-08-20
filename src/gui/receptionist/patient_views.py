@@ -37,7 +37,7 @@ class FieldType:
 # Fields shared by both register and edit forms
 _PATIENT_FIELDS = [
     FieldType("full_name", "Full Name *", required=True),
-    FieldType("date_of_birth", "Date of Birth (YYYY-MM-DD)"),
+    FieldType("date_of_birth", "Date of Birth (DD-MM-YYYY)"),
     FieldType("gender", "Gender", widget_type="combo", values=Gender.ALL),
     FieldType("contact_number", "Contact Number *", required=True),
     FieldType("email", "Email"),

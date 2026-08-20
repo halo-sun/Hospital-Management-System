@@ -95,7 +95,8 @@ def validate_date_of_birth(
 ) -> Tuple[bool, str]:
     """Validate a date-of-birth string and optionally check age range.
 
-    Accepts ``YYYY-MM-DD``, ``YYYY/MM/DD``, or ``DD-MM-YYYY`` formats.
+    Accepts ``DD-MM-YYYY`` (canonical), ``YYYY-MM-DD``, ``YYYY/MM/DD``,
+    and ``DD/MM/YYYY`` formats.
 
     Args:
         dob_str: The date string to validate.
@@ -110,9 +111,9 @@ def validate_date_of_birth(
     if not dob_str:
         return True, ""  # Optional field
 
-    # Try multiple formats
+    # Try multiple formats — DD-MM-YYYY first (canonical display format)
     parsed: Optional[date] = None
-    for fmt in ("%Y-%m-%d", "%Y/%m/%d", "%d-%m-%Y", "%d/%m/%Y"):
+    for fmt in ("%d-%m-%Y", "%Y-%m-%d", "%Y/%m/%d", "%d/%m/%Y"):
         try:
             parsed = datetime.strptime(dob_str, fmt).date()
             break
@@ -120,7 +121,7 @@ def validate_date_of_birth(
             continue
 
     if parsed is None:
-        return False, "Invalid date format. Use YYYY-MM-DD."
+        return False, "Invalid date format. Use DD-MM-YYYY."
 
     today = date.today()
 
