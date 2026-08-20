@@ -168,6 +168,7 @@ class AppConfig:
     PASSWORD_MIN_LENGTH: ClassVar[int] = 8
     DEFAULT_SLOT_DURATION: ClassVar[int] = 15       # minutes
     MAX_APPOINTMENTS_PER_DAY: ClassVar[int] = 20
+    MAX_BOOKING_DAYS_AHEAD: ClassVar[int] = int(os.getenv("MAX_BOOKING_DAYS", "90"))
 
     # ── Window geometry ───────────────────────────────────────
     WINDOW_WIDTH: ClassVar[int] = 1400

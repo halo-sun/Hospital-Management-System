@@ -409,14 +409,15 @@ class AppointmentService:
         self,
         doctor_id: int,
         from_date: Optional[date] = None,
-        max_days_ahead: int = 30,
+        max_days_ahead: Optional[int] = None,
     ) -> Optional[Dict[str, Any]]:
         """Find the earliest available slot for a doctor.
 
         Args:
             doctor_id: The doctor ID.
             from_date: Start searching from this date (default: today).
-            max_days_ahead: Maximum days to search.
+            max_days_ahead: Maximum days to search.  Defaults to
+                ``app_config.MAX_BOOKING_DAYS_AHEAD``.
 
         Returns:
             Slot dict or None.

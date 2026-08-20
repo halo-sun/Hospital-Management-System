@@ -219,26 +219,36 @@ class PatientRegistrationView(BaseView):
 # ── Search + results table ─────────────────────────────────────
 
 class PatientSearchView(BaseView):
-    """Search bar + results table for patients."""
+    """Search bar + results table for patients.
+
+    On load the full patient list is displayed immediately.  Typing
+    in the search box filters the list live (no button press needed).
+    """
 
     def __init__(
         self,
         parent: tk.Widget,
         on_search: Callable,
         on_select: Optional[Callable[[Dict[str, Any]], None]] = None,
+        on_load_all: Optional[Callable[[], List[Dict[str, Any]]]] = None,
         **kwargs,
     ) -> None:
         """Initialise the search view.
 
         Args:
             parent: Parent tkinter widget.
-            on_search: Callback invoked with search results.
+            on_search: Callback(search_term) for explicit search.
             on_select: Optional callback when a row is selected.
+            on_load_all: Optional callback() that returns the full
+                patient list for the default view.
         """
         super().__init__(parent, **kwargs)
         self._on_search = on_search
         self._on_select = on_select
+        self._on_load_all = on_load_all
+        self._all_patients: List[Dict[str, Any]] = []
         self._build_ui()
+        self._load_default()
 
     def _build_ui(self) -> None:
         """Construct the search bar and results table."""
@@ -258,12 +268,21 @@ class PatientSearchView(BaseView):
         )
         entry.pack(side="left", padx=(0, 8))
         entry.bind("<Return>", lambda e: self._do_search())
+        # Live search on each keystroke
+        self._search_var.trace_add("write", lambda *_: self._on_search_changed())
+        self._after_id: Optional[str] = None
 
         tk.Button(
             search_frame, text="Search", bg=Theme.ACCENT, fg=Theme.WHITE,
             font=Theme.FONT_BUTTON_BOLD, cursor="hand2", bd=0,
             padx=16, pady=6, command=self._do_search,
         ).pack(side="left")
+
+        tk.Button(
+            search_frame, text="Clear", bg=Theme.LIGHT, fg=Theme.DARK_TEXT,
+            font=Theme.FONT_SMALL_BOLD, cursor="hand2", bd=0,
+            padx=10, pady=2, command=self._clear_search,
+        ).pack(side="left", padx=(8, 0))
 
         # ── Results table (using BaseView helper) ──────────────
         table_frame = ttk.Frame(self, style="TFrame", padding=(16, 0))
@@ -284,12 +303,46 @@ class PatientSearchView(BaseView):
         if self._on_select:
             self._tree.bind("<<TreeviewSelect>>", self._on_tree_select)
 
+    def _load_default(self) -> None:
+        """Load the full patient list on initial display."""
+        if self._on_load_all:
+            try:
+                self._all_patients = self._on_load_all()
+            except Exception:
+                self._all_patients = []
+            self.populate(self._all_patients)
+
+    def _on_search_changed(self) -> None:
+        """Debounced live search — filters on each keystroke."""
+        if self._after_id is not None:
+            self.after_cancel(self._after_id)
+        self._after_id = self.after(200, self._do_search)
+
     def _do_search(self) -> None:
         """Execute the search and update the table."""
+        self._after_id = None
         term = self._search_var.get().strip()
         if not term:
+            # Empty search → show full list
+            self.populate(self._all_patients)
             return
+        if len(term) < 2:
+            # Too short for backend search — filter client-side
+            term_lower = term.lower()
+            filtered = [
+                p for p in self._all_patients
+                if term_lower in (p.get("patient_id", "")).lower()
+                or term_lower in (p.get("full_name", "")).lower()
+                or term_lower in (p.get("contact_number", "")).lower()
+            ]
+            self.populate(filtered)
+            return
+        # Use backend search for 2+ characters (LIKE query)
         self._on_search(term)
+
+    def _clear_search(self) -> None:
+        """Reset the search and show the full list."""
+        self._search_var.set("")
 
     def _on_tree_select(self, event: tk.Event) -> None:
         """Handle tree selection."""
@@ -313,3 +366,4 @@ class PatientSearchView(BaseView):
                 p.get("gender", ""),
                 p.get("email", ""),
             ))
+        self.apply_default_sort(self._tree)

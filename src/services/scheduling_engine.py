@@ -312,7 +312,7 @@ class SchedulingEngine:
         doctor_id: int,
         from_date: date,
         preferred_duration: Optional[int] = None,
-        max_days_ahead: int = 30,
+        max_days_ahead: Optional[int] = None,
     ) -> Optional[Dict[str, Any]]:
         """Find the earliest available slot for a doctor within a date range.
 
@@ -323,11 +323,14 @@ class SchedulingEngine:
             from_date: Start searching from this date.
             preferred_duration: Desired slot length in minutes.
             max_days_ahead: Maximum number of days to search.
+                Defaults to ``app_config.MAX_BOOKING_DAYS_AHEAD``.
 
         Returns:
             Dict with ``date``, ``start_time``, ``end_time`` keys, or ``None``.
         """
         duration = preferred_duration or app_config.default_slot_duration
+        if max_days_ahead is None:
+            max_days_ahead = app_config.MAX_BOOKING_DAYS_AHEAD
 
         for day_offset in range(max_days_ahead):
             check_date = from_date + timedelta(days=day_offset)

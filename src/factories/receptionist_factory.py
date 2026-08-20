@@ -84,7 +84,10 @@ class ReceptionistViewFactory:
         )
         self._main_window.register_view(
             "search_patient",
-            lambda p: PatientSearchView(p, self._handle_search_patient),
+            lambda p: PatientSearchView(
+                p, self._handle_search_patient,
+                on_load_all=lambda: self._patient_ctrl.get_all_patients(limit=200),
+            ),
         )
         self._main_window.register_view(
             "book_appointment",
@@ -125,10 +128,17 @@ class ReceptionistViewFactory:
             term: The search term entered by the user.
         """
         success, msg, results = self._patient_ctrl.search_patients(term)
-        parent = self._main_window._content_frame
-        view = PatientSearchView(parent, self._handle_search_patient)
-        view.populate(results)
-        self._main_window.show_content(view)
+        view = self._main_window.get_current_content()
+        if hasattr(view, "populate"):
+            view.populate(results)
+        else:
+            parent = self._main_window._content_frame
+            new_view = PatientSearchView(
+                parent, self._handle_search_patient,
+                on_load_all=lambda: self._patient_ctrl.get_all_patients(limit=200),
+            )
+            new_view.populate(results)
+            self._main_window.show_content(new_view)
 
     # ── Appointment booking ────────────────────────────────────
 
