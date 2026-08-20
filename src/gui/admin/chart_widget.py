@@ -132,7 +132,7 @@ class AnalyticsChartWidget(ttk.Frame):
         axes = self._axes
         axes.clear()
 
-        bars = axes.bar(labels, values, color=color, edgecolor="white", linewidth=0.5)
+        bars = axes.bar(labels, values, color=color, edgecolor=Theme.SURFACE, linewidth=0.5)
         axes.set_title(title, fontsize=11, fontweight="bold", pad=12)
         axes.set_xlabel(xlabel, fontsize=9)
         axes.set_ylabel(ylabel, fontsize=9)
@@ -179,7 +179,7 @@ class AnalyticsChartWidget(ttk.Frame):
         axes.clear()
 
         axes.plot(labels, values, color=color, marker=marker,
-                  linewidth=2, markersize=4, markeredgecolor="white",
+                  linewidth=2, markersize=4, markeredgecolor=Theme.SURFACE,
                   markeredgewidth=0.5)
         axes.fill_between(range(len(values)), values, alpha=0.1, color=color)
         axes.set_title(title, fontsize=11, fontweight="bold", pad=12)
@@ -220,8 +220,8 @@ class AnalyticsChartWidget(ttk.Frame):
         wedges, texts, autotexts = axes.pie(
             values, labels=None, autopct="%1.1f%%",
             colors=colors[:len(values)], startangle=90,
-            textprops={"fontsize": 8, "color": Theme.DARK_TEXT},
-            wedgeprops={"edgecolor": "white", "linewidth": 1},
+            textprops={"fontsize": 8, "color": Theme.WHITE},
+            wedgeprops={"edgecolor": Theme.SURFACE, "linewidth": 1},
         )
         axes.set_title(title, fontsize=11, fontweight="bold", pad=12)
 
@@ -255,7 +255,7 @@ class AnalyticsChartWidget(ttk.Frame):
         axes.clear()
 
         y_pos = range(len(labels))
-        axes.barh(y_pos, values, color=color, edgecolor="white", linewidth=0.5)
+        axes.barh(y_pos, values, color=color, edgecolor=Theme.SURFACE, linewidth=0.5)
         axes.set_yticks(y_pos)
         axes.set_yticklabels(labels, fontsize=8)
         axes.set_title(title, fontsize=11, fontweight="bold", pad=12)
@@ -393,9 +393,16 @@ class AnalyticsChartWidget(ttk.Frame):
             return False
 
     def _apply_theme_colors(self) -> None:
-        """Match axes text/spines to the current theme palette."""
+        """Match axes text/spines/face to the current theme palette.
+
+        Called at init and again when the theme changes so charts
+        stay readable in both light and dark modes.
+        """
         if self._axes is None:
             return
+        # Update figure and axes backgrounds
+        if self._figure is not None:
+            self._figure.set_facecolor(Theme.SURFACE)
         axes = self._axes
         axes.set_facecolor(Theme.SURFACE)
         axes.title.set_color(Theme.DARK_TEXT)
@@ -409,6 +416,17 @@ class AnalyticsChartWidget(ttk.Frame):
             axes.get_legend().get_frame().set_edgecolor(Theme.BORDER)
             for text in axes.get_legend().get_texts():
                 text.set_color(Theme.DARK_TEXT)
+
+    def update_theme_colors(self) -> None:
+        """Reapply theme colours to an existing chart.
+
+        Call this when the user toggles the theme while the analytics
+        view is open.  Updates backgrounds, text, spines, and redraws.
+        """
+        self._apply_theme_colors()
+        # Update fallback label colours too
+        self._fallback.configure(bg=Theme.SURFACE, fg=Theme.MUTED)
+        self._refresh()
 
     def _refresh(self) -> None:
         """Redraw the canvas."""
