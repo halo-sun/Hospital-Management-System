@@ -353,6 +353,12 @@ class AdminViewFactory:
     def _create_doctor_management_view(self, parent: tk.Widget) -> DoctorManagementView:
         """Build a populated doctor management view with search/filter.
 
+        Filtering is now handled client-side in the view -- the full
+        doctor list is passed once and the view re-filters in-place on
+        every dropdown change or search keystroke.  The callbacks below
+        just trigger ``_apply_filters()`` on the live view instance
+        rather than recreating the entire view.
+
         Args:
             parent: Parent tkinter widget.
 
@@ -362,77 +368,33 @@ class AdminViewFactory:
         doctors = self._doctor_ctrl.get_all_doctors()
         departments = self._dept_ctrl.list_departments()
         specializations = self._doctor_ctrl.get_all_specializations()
+
+        def _refresh_view() -> None:
+            """Re-fetch doctors from DB and refresh the current view."""
+            view = self._main_window.get_current_content()
+            if hasattr(view, "_apply_filters"):
+                fresh = self._doctor_ctrl.get_all_doctors()
+                view.populate(fresh)
+            else:
+                self._main_window.navigate_to("manage_doctors", force=True)
+
+        def _apply_view_filters() -> None:
+            """Re-apply filters on the live view (no re-query)."""
+            view = self._main_window.get_current_content()
+            if hasattr(view, "_apply_filters"):
+                view._apply_filters()
+
         return DoctorManagementView(
             parent, doctors, departments, specializations=specializations,
-            on_search=lambda term: self._handle_doctor_search(term, parent),
-            on_filter=lambda dept_id, spec, status: self._handle_doctor_filter(
-                dept_id, spec, status, parent,
-            ),
-            on_add=lambda: self._show_add_doctor_form(parent),
-            on_edit=lambda did: self._show_edit_doctor_form(did, parent),
-            on_delete=lambda did: self._handle_delete_doctor(did),
-            on_schedule=lambda did: self._show_doctor_schedule(did, parent),
-            on_leave=lambda did: self._show_doctor_leave_dialog(did, parent),            on_refresh=lambda: self._main_window.navigate_to("manage_doctors", force=True),
-            )
-
-    def _handle_doctor_search(self, search_term: str, parent: tk.Widget) -> None:
-        """Search doctors and update the view.
-
-        Args:
-            search_term: Text to search for.
-            parent: Parent widget.
-        """
-        if not search_term:
-            self._main_window.navigate_to("manage_doctors", force=True)
-            return
-        results = self._doctor_ctrl.search_doctors(search_term)
-        # Replace the view with filtered results
-        departments = self._dept_ctrl.list_departments()
-        specializations = self._doctor_ctrl.get_all_specializations()
-        view = DoctorManagementView(
-            parent, results, departments, specializations=specializations,
-            on_search=lambda term: self._handle_doctor_search(term, parent),
-            on_filter=lambda dept_id, spec, status: self._handle_doctor_filter(
-                dept_id, spec, status, parent,
-            ),
-            on_add=lambda: self._show_add_doctor_form(parent),
-            on_edit=lambda did: self._show_edit_doctor_form(did, parent),
-            on_delete=lambda did: self._handle_delete_doctor(did),
-            on_schedule=lambda did: self._show_doctor_schedule(did, parent),
-            on_refresh=lambda: self._main_window.navigate_to("manage_doctors", force=True),
-        )
-        self._main_window.show_content(view)
-
-    def _handle_doctor_filter(
-        self, department_id, specialization, status, parent: tk.Widget,
-    ) -> None:
-        """Filter doctors and update the view.
-
-        Args:
-            department_id: Optional department ID.
-            specialization: Optional specialization.
-            status: Optional status.
-            parent: Parent widget.
-        """
-        results = self._doctor_ctrl.filter_doctors(
-            department_id=department_id,
-            specialization=specialization,
-            status=status,
-        )
-        departments = self._dept_ctrl.list_departments()
-        specializations = self._doctor_ctrl.get_all_specializations()
-        view = DoctorManagementView(
-            parent, results, departments, specializations=specializations,
-            on_search=lambda term: self._handle_doctor_search(term, parent),
-            on_filter=lambda did, s, st: self._handle_doctor_filter(did, s, st, parent),
+            on_search=lambda term: _apply_view_filters(),
+            on_filter=lambda dept_id, spec, status: _apply_view_filters(),
             on_add=lambda: self._show_add_doctor_form(parent),
             on_edit=lambda did: self._show_edit_doctor_form(did, parent),
             on_delete=lambda did: self._handle_delete_doctor(did),
             on_schedule=lambda did: self._show_doctor_schedule(did, parent),
             on_leave=lambda did: self._show_doctor_leave_dialog(did, parent),
-            on_refresh=lambda: self._main_window.navigate_to("manage_doctors", force=True),
+            on_refresh=_refresh_view,
         )
-        self._main_window.show_content(view)
 
     def _show_add_doctor_form(self, parent: tk.Widget) -> None:
         """Display the add-doctor form in the content area.

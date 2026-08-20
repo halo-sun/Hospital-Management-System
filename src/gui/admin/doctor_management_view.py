@@ -28,13 +28,16 @@ class DoctorManagementView(BaseView):
         on_schedule: Optional[Callable[[int], None]] = None,
         on_leave: Optional[Callable[[int], None]] = None,
         on_refresh: Optional[Callable] = None,
+        initial_department: Optional[str] = None,
+        initial_specialization: Optional[str] = None,
+        initial_status: Optional[str] = None,
         **kwargs,
     ) -> None:
         """Initialise the doctor management view.
 
         Args:
             parent: Parent tkinter widget.
-            doctors: List of doctor dicts.
+            doctors: List of doctor dicts (full unfiltered list).
             departments: List of department dicts.
             specializations: Optional list of all known specializations.
             on_search: Callback(search_term) for text search.
@@ -44,9 +47,12 @@ class DoctorManagementView(BaseView):
             on_delete: Callback to delete a doctor.
             on_schedule: Callback to manage a doctor's schedule.
             on_refresh: Callback to refresh the list.
+            initial_department: Pre-selected department name (for restored state).
+            initial_specialization: Pre-selected specialization.
+            initial_status: Pre-selected status.
         """
         super().__init__(parent, **kwargs)
-        self._doctors = doctors
+        self._all_doctors = list(doctors)
         self._departments = departments
         self._specializations = specializations or []
         self._on_search = on_search
@@ -57,6 +63,9 @@ class DoctorManagementView(BaseView):
         self._on_schedule = on_schedule
         self._on_leave = on_leave
         self._on_refresh = on_refresh
+        self._initial_department = initial_department
+        self._initial_specialization = initial_specialization
+        self._initial_status = initial_status
         self._build_ui()
 
     def _build_ui(self) -> None:
@@ -150,7 +159,7 @@ class DoctorManagementView(BaseView):
 
         # Clear filters button
         tk.Button(
-            filter_frame, text="Clear", bg=Theme.LIGHT, fg=Theme.DARK_TEXT,
+            filter_frame, text="Clear Filters", bg=Theme.LIGHT, fg=Theme.DARK_TEXT,
             font=Theme.FONT_SMALL_BOLD, cursor="hand2", bd=0, padx=10, pady=2,
             command=self._clear_filters,
         ).pack(side="left")
@@ -172,7 +181,15 @@ class DoctorManagementView(BaseView):
         self._tree.column("phone", width=120)
         self._tree.column("status", width=80, anchor="center")
 
-        self.populate(self._doctors)
+        # Restore initial filter selections (if any) before populating
+        if self._initial_department:
+            self._dept_filter_var.set(self._initial_department)
+        if self._initial_specialization:
+            self._spec_filter_var.set(self._initial_specialization)
+        if self._initial_status:
+            self._status_filter_var.set(self._initial_status)
+
+        self.populate(self._all_doctors)
 
         # ── Action buttons ────────────────────────────────────────
         btn_frame = ttk.Frame(self, style="TFrame", padding=(16, 0, 16, 16))
@@ -209,24 +226,15 @@ class DoctorManagementView(BaseView):
     # ── Public API ─────────────────────────────────────────────
 
     def populate(self, doctors: List[Dict[str, Any]]) -> None:
-        """Fill the tree with doctor records.
+        """Fill the tree with doctor records and apply active filters.
+
+        Stores the full doctor list for client-side filtering.
 
         Args:
             doctors: List of doctor dictionaries.
         """
-        self._doctors = doctors
-        self._tree.delete(*self._tree.get_children())
-        for d in doctors:
-            self._tree.insert("", "end", values=(
-                d.get("doctor_id", ""),
-                d.get("full_name", ""),
-                d.get("department_name", ""),
-                d.get("specialization", ""),
-                d.get("email", ""),
-                d.get("contact_number", ""),
-                d.get("status", ""),
-            ), iid=str(d.get("doctor_id", "")))
-        self.apply_default_sort(self._tree)
+        self._all_doctors = list(doctors)
+        self._apply_filters()
 
     def update_specializations(self, specializations: List[str]) -> None:
         """Update the specialization filter dropdown.
@@ -244,36 +252,80 @@ class DoctorManagementView(BaseView):
             term = self._search_var.get().strip()
             self._on_search(term)
 
-    def _do_filter(self) -> None:
-        """Execute the filter callback."""
-        if not self._on_filter:
-            return
+    def _apply_filters(self) -> None:
+        """Apply all active filters client-side and repopulate the tree.
 
+        Reads the current search term and dropdown selections, filters
+        ``_all_doctors`` accordingly (AND logic), and re-renders the
+        tree with the matching subset.  This runs on every dropdown
+        change and on initial load, so filters always compose correctly
+        with the default ID-ascending sort.
+        """
         dept_name = self._dept_filter_var.get()
         spec = self._spec_filter_var.get()
         status = self._status_filter_var.get()
+        search_term = self._search_var.get().strip().lower()
 
-        department_id = None
+        filtered = list(self._all_doctors)
+
+        # Department filter
         if dept_name and dept_name != "All":
-            for d in self._departments:
-                if d.get("department_name") == dept_name:
-                    department_id = d.get("department_id")
-                    break
+            filtered = [
+                d for d in filtered
+                if d.get("department_name") == dept_name
+            ]
 
-        self._on_filter(
-            department_id=department_id,
-            specialization=None if spec == "All" else spec,
-            status=None if status == "All" else status,
-        )
+        # Specialization filter (substring match)
+        if spec and spec != "All":
+            spec_lower = spec.lower()
+            filtered = [
+                d for d in filtered
+                if d.get("specialization")
+                and spec_lower in d["specialization"].lower()
+            ]
+
+        # Status filter
+        if status and status != "All":
+            filtered = [
+                d for d in filtered
+                if d.get("status", "").lower() == status.lower()
+            ]
+
+        # Text search filter
+        if search_term:
+            filtered = [
+                d for d in filtered
+                if search_term in d.get("full_name", "").lower()
+                or search_term in d.get("department_name", "").lower()
+                or search_term in d.get("specialization", "").lower()
+                or search_term in d.get("email", "").lower()
+                or search_term in (d.get("contact_number") or "").lower()
+            ]
+
+        self._tree.delete(*self._tree.get_children())
+        for d in filtered:
+            self._tree.insert("", "end", values=(
+                d.get("doctor_id", ""),
+                d.get("full_name", ""),
+                d.get("department_name", ""),
+                d.get("specialization", ""),
+                d.get("email", ""),
+                d.get("contact_number", ""),
+                d.get("status", ""),
+            ), iid=str(d.get("doctor_id", "")))
+        self.apply_default_sort(self._tree)
+
+    def _do_filter(self) -> None:
+        """Re-apply filters when a dropdown selection changes."""
+        self._apply_filters()
 
     def _clear_filters(self) -> None:
-        """Reset all filters and reload."""
+        """Reset all filters and show the full list."""
         self._search_var.set("")
         self._dept_filter_var.set("All")
         self._spec_filter_var.set("All")
         self._status_filter_var.set("All")
-        if self._on_refresh:
-            self._on_refresh()
+        self._apply_filters()
 
     def _handle_edit(self) -> None:
         """Edit the selected doctor."""
