@@ -10,7 +10,7 @@ from src.models.base import BaseModel
 class Department(BaseModel):
     """Hospital department / speciality unit.
 
-    Maps to the ``departments`` table (ARCHITECTURE.md §4): a
+    Maps to the ``departments`` table (docs/ARCHITECTURE.md §4): a
     department has a unique name and an optional description.  Doctors
     reference a department via ``doctors.department_id``.
     """
