@@ -59,6 +59,8 @@ jobs:
     name: Build Windows installer
     runs-on: windows-latest
     timeout-minutes: 45
+    permissions:
+      contents: write
 
     steps:
       # ── 1. Checkout ────────────────────────────────────────────
@@ -130,10 +132,23 @@ jobs:
       - name: Build HMS-Setup.exe
         run: pyinstaller hms-setup.spec --noconfirm
 
-      # ── 8. Verify build outputs ───────────────────────────────
+      # ── 8. Verify build outputs (fail loudly if empty/missing) ──────
       - name: Verify build outputs
         shell: bash
         run: |
+          for DIR in dist/HospitalScheduler dist/HMS-Setup; do
+            if [ ! -d "$DIR" ]; then
+              echo "::error::$DIR directory not found"
+              exit 1
+            fi
+            FILE_COUNT=$(find "$DIR" -type f | wc -l)
+            if [ "$FILE_COUNT" -eq 0 ]; then
+              echo "::error::$DIR is empty"
+              exit 1
+            fi
+            echo "Verified: $DIR contains $FILE_COUNT files"
+            ls -lh "$DIR"
+          done
           for EXE in dist/HospitalScheduler/HospitalScheduler.exe dist/HMS-Setup/HMS-Setup.exe; do
             if [ ! -f "$EXE" ]; then
               echo "::error::$EXE not found"
@@ -177,7 +192,15 @@ jobs:
           retention-days: 30
           if-no-files-found: error
 
-      # ── 12. Also upload raw PyInstaller output (backup) ────────
+      # ── 12. Create GitHub Release (on tag pushes only) ──────────
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/HospitalScheduler-${{ env.BUILD_VERSION }}-Setup.exe
+          generate_release_notes: true
+
+      # ── 13. Also upload raw PyInstaller output (backup) ────────
       - name: Upload raw build (backup)
         uses: actions/upload-artifact@v4
         with:

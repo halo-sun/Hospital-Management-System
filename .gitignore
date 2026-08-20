@@ -27,3 +27,4 @@ assets/patient_documents/
 Thumbs.db
 .idea/
 .vscode/
+.aider*
