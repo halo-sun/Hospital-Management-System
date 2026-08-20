@@ -49,8 +49,7 @@ class ReportService:
         """
         if target_date is None:
             target_date = date.today()
-        return self._appt_repo.find_by_doctor_and_date(0, target_date) \
-            if False else self._appt_repo.find_by_date_range(target_date, target_date)
+        return self._appt_repo.find_by_date_range(target_date, target_date)
 
     def get_monthly_appointments(
         self, year: Optional[int] = None, month: Optional[int] = None

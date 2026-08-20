@@ -32,6 +32,7 @@ from src.gui.admin.staff_management_view import StaffManagementView, StaffFormDi
 from src.gui.admin.doctor_schedule_dialog import DoctorScheduleDialog, DoctorLeaveDialog
 from src.gui.admin.analytics_dashboard_view import AnalyticsDashboardView
 from src.gui.admin.audit_log_view import AuditLogView
+from src.gui.admin.reports_view import ReportsView
 from src.gui.admin.settings_view import SettingsView
 from src.gui.receptionist.appointment_views import AppointmentListView
 from src.services.user_service import UserService
@@ -709,14 +710,24 @@ class AdminViewFactory:
             return
         self._main_window.refresh_theme()
 
-    def _create_reports_view(self, parent: tk.Widget) -> AdminDashboard:
-        """Build a placeholder reports view.
+    def _create_reports_view(self, parent: tk.Widget) -> ReportsView:
+        """Build the dedicated reports view.
 
         Args:
             parent: Parent tkinter widget.
 
         Returns:
-            An AdminDashboard with current stats.
+            A ReportsView instance.
         """
-        stats = self._report_ctrl.get_dashboard_stats()
-        return AdminDashboard(parent, stats)
+        return ReportsView(
+            parent,
+            on_generate=lambda rtype, start, end: (
+                self._report_ctrl.generate_report(rtype, start, end)
+            ),
+            on_export_pdf=lambda fp, headers, rows, title, rtype: (
+                self._report_ctrl.export_report_pdf(fp, headers, rows, title, rtype)
+            ),
+            on_export_excel=lambda fp, headers, rows, title, rtype: (
+                self._report_ctrl.export_report_excel(fp, headers, rows, title, rtype)
+            ),
+        )

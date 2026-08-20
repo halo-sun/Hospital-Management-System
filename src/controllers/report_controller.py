@@ -342,3 +342,183 @@ class ReportController:
         if user_id:
             self._audit_service.log_export(user_id, report_type)
         return headers, rows, title
+
+    # ── Unified Report Generation ─────────────────────────────
+
+    @require_role(Role.ADMIN)
+    def generate_report(
+        self,
+        report_type: str,
+        start_date: Optional[date] = None,
+        end_date: Optional[date] = None,
+    ) -> List[Dict[str, Any]]:
+        """Generate a report of the given type, returning row dicts.
+
+        This is the single entry-point used by the ReportsView.  It
+        dispatches to the appropriate service method and normalises
+        the output into a flat list of dictionaries suitable for
+        display in a Treeview.
+
+        Args:
+            report_type: One of 'daily_appointments',
+                'monthly_appointments', 'doctor_workload',
+                'department_stats', 'patient_demographics',
+                'cancellation_rate', 'peak_hours'.
+            start_date: Optional start date (for date-range reports).
+            end_date: Optional end date (for date-range reports).
+
+        Returns:
+            List of row dictionaries.
+        """
+        if report_type == "daily_appointments":
+            return self.get_daily_appointments(start_date)
+        elif report_type == "monthly_appointments":
+            data = self.get_monthly_appointments(
+                year=start_date.year if start_date else None,
+                month=start_date.month if start_date else None,
+            )
+            return data.get("daily_counts", [])
+        elif report_type == "doctor_workload":
+            return self.get_doctor_workload()
+        elif report_type == "department_stats":
+            return self.get_department_statistics()
+        elif report_type == "patient_demographics":
+            return self.get_patient_gender_distribution()
+        elif report_type == "cancellation_rate":
+            if start_date and end_date:
+                return self.get_cancellation_rate(start_date, end_date)
+            return []
+        elif report_type == "peak_hours":
+            return self.get_peak_hours()
+        else:
+            return []
+
+    @require_role(Role.ADMIN)
+    def export_report_pdf(
+        self,
+        filepath: str,
+        headers: List[str],
+        rows: List[List[Any]],
+        title: str,
+        report_type: str,
+    ) -> Tuple[bool, str]:
+        """Export arbitrary report data to a PDF file.
+
+        Args:
+            filepath: Destination file path.
+            headers: Column header labels.
+            rows: Data rows (list of lists).
+            title: Report title.
+            report_type: The report type key (for logging).
+
+        Returns:
+            Tuple of (success, message).
+        """
+        try:
+            from reportlab.lib.pagesizes import A4, landscape
+            from reportlab.lib.units import inch
+            from reportlab.lib import colors
+            from reportlab.platypus import (
+                SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle,
+            )
+            from reportlab.lib.styles import getSampleStyleSheet
+
+            doc = SimpleDocTemplate(
+                filepath, pagesize=landscape(A4),
+                rightMargin=36, leftMargin=36,
+                topMargin=36, bottomMargin=36,
+            )
+            styles = getSampleStyleSheet()
+            story: list = []
+
+            story.append(Paragraph(title, styles["Title"]))
+            story.append(Spacer(1, 12))
+
+            if rows:
+                table_data = [headers] + [
+                    [str(cell) for cell in row] for row in rows
+                ]
+                num_cols = len(headers)
+                col_width = (landscape(A4)[0] - 72) / max(num_cols, 1)
+                t = Table(table_data, colWidths=[col_width] * num_cols)
+                t.setStyle(TableStyle([
+                    ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#2C3E50")),
+                    ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                    ("FONTSIZE", (0, 0), (-1, -1), 9),
+                    ("ALIGN", (0, 0), (-1, 0), "CENTER"),
+                    ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+                    ("ROWBACKGROUNDS", (0, 1), (-1, -1),
+                     [colors.white, colors.HexColor("#F8F9FA")]),
+                ]))
+                story.append(t)
+            else:
+                story.append(Paragraph(
+                    "No data available for this report.", styles["Normal"],
+                ))
+
+            doc.build(story)
+            logger.info("Report PDF exported: %s", filepath)
+            return True, f"PDF exported to {filepath}"
+        except Exception as e:
+            logger.error("Report PDF export failed: %s", e)
+            return False, f"PDF export failed: {e}"
+
+    @require_role(Role.ADMIN)
+    def export_report_excel(
+        self,
+        filepath: str,
+        headers: List[str],
+        rows: List[List[Any]],
+        title: str,
+        report_type: str,
+    ) -> Tuple[bool, str]:
+        """Export arbitrary report data to an Excel file.
+
+        Args:
+            filepath: Destination file path.
+            headers: Column header labels.
+            rows: Data rows (list of lists).
+            title: Report title.
+            report_type: The report type key (for logging).
+
+        Returns:
+            Tuple of (success, message).
+        """
+        try:
+            from openpyxl import Workbook
+            from openpyxl.styles import Font, PatternFill, Alignment
+
+            wb = Workbook()
+            ws = wb.active
+            ws.title = title[:31]  # Excel sheet name limit
+
+            header_font = Font(bold=True, color="FFFFFF", size=11)
+            header_fill = PatternFill(
+                start_color="2C3E50", end_color="2C3E50", fill_type="solid",
+            )
+            for col_idx, h in enumerate(headers, 1):
+                cell = ws.cell(row=1, column=col_idx, value=h)
+                cell.font = header_font
+                cell.fill = header_fill
+                cell.alignment = Alignment(horizontal="center")
+
+            for row_idx, row in enumerate(rows, 2):
+                for col_idx, val in enumerate(row, 1):
+                    ws.cell(row=row_idx, column=col_idx, value=val)
+
+            # Auto-size columns
+            for col_idx, h in enumerate(headers, 1):
+                max_len = max(
+                    len(str(h)),
+                    max((len(str(row[col_idx - 1])) for row in rows), default=0),
+                )
+                ws.column_dimensions[
+                    ws.cell(row=1, column=col_idx).column_letter
+                ].width = min(max_len + 2, 40)
+
+            wb.save(filepath)
+            logger.info("Report Excel exported: %s", filepath)
+            return True, f"Excel exported to {filepath}"
+        except Exception as e:
+            logger.error("Report Excel export failed: %s", e)
+            return False, f"Excel export failed: {e}"
