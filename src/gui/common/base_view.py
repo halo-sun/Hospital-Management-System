@@ -188,6 +188,11 @@ class BaseView(ttk.Frame):
         Clicking a header sorts ascending; clicking again toggles to
 descending; clicking a different header resets to ascending.
 
+        The first time a view's tree is created, a default sort by
+        ``"id"`` ascending is applied automatically (if an ``"id"``
+        column exists).  Call ``apply_default_sort()`` after populating
+        data to re-apply this default.
+
         Args:
             tree: The Treeview widget.
             columns: List of column IDs.
@@ -298,6 +303,12 @@ descending; clicking a different header resets to ascending.
             tree.heading(saved_col,
                         text=f"{current_text}{indicator}")
 
+        # Set default sort to ID ascending on first load
+        if _key not in self._sort_state_registry or \
+                self._sort_state_registry[_key] == (None, "asc"):
+            if "id" in columns:
+                self._sort_state_registry[_key] = ("id", "asc")
+
     # ── Internal: treeview context menu ───────────────────────
 
     def _enable_context_menu(self, tree: ttk.Treeview) -> None:
@@ -346,6 +357,63 @@ descending; clicking a different header resets to ascending.
             menu.entryconfigure(0, label=f"Select {values[0]}")
         else:
             menu.entryconfigure(0, label="Select")
+
+    def apply_default_sort(self, tree: ttk.Treeview) -> None:
+        """Apply the default sort (ID ascending) to the given tree.
+
+        Call this at the end of every ``populate()`` method after
+        inserting rows.  It reads the saved sort state for the
+        current view class and applies it; on first load that
+        defaults to ``"id"`` ascending.
+
+        Args:
+            tree: The Treeview widget to sort.
+        """
+        _key = type(self).__name__
+        col, direction = self._sort_state_registry.get(_key, ("id", "asc"))
+        if not col:
+            return
+        columns = list(tree["columns"])
+        if col not in columns:
+            return
+        items = [(tree.set(child, col), child)
+                 for child in tree.get_children("")]
+        if not items:
+            return
+
+        use_date = col in self._date_sort_columns
+
+        def _sort_key(pair: tuple) -> tuple:
+            val = pair[0]
+            if not val:
+                return (1, "")
+            if use_date:
+                try:
+                    return (0, datetime.strptime(
+                        str(val)[:10], "%Y-%m-%d"))
+                except ValueError:
+                    pass
+                try:
+                    return (0, datetime.strptime(
+                        str(val)[:5], "%H:%M"))
+                except ValueError:
+                    pass
+            try:
+                return (0, float(val))
+            except (ValueError, TypeError):
+                return (0, str(val).lower())
+
+        items.sort(key=_sort_key, reverse=(direction == "desc"))
+        for idx, (_, child) in enumerate(items):
+            tree.move(child, "", idx)
+
+        # Update heading indicators
+        indicator = " \u25b2" if direction == "asc" else " \u25bc"
+        for c in columns:
+            text = tree.heading(c)["text"].rstrip(" \u25b2\u25bc")
+            tree.heading(c, text=text)
+        current_text = tree.heading(col)["text"].rstrip(" \u25b2\u25bc")
+        tree.heading(col, text=f"{current_text}{indicator}")
 
     # ── Loading overlay ──────────────────────────────────────
 

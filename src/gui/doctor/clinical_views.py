@@ -713,6 +713,7 @@ class VisitDetailView(BaseView):
                 rx.get("duration", ""),
                 rx.get("instructions", ""),
             ), iid=str(rx.get("prescription_id", "")))
+        self.apply_default_sort(self._rx_tree)
 
         # Action buttons
         btn_frame = ttk.Frame(tab, style="TFrame")
@@ -775,6 +776,7 @@ class VisitDetailView(BaseView):
                 size_str,
                 upload_date,
             ), iid=str(r.get("report_id", "")))
+        self.apply_default_sort(self._report_tree)
 
         # ── Upload controls (type selector + button) ──────────
         upload_frame = ttk.Frame(tab, style="TFrame")
@@ -850,6 +852,7 @@ class VisitDetailView(BaseView):
         # Populate documents
         for doc in self._visit_data.get("documents", []):
             self._insert_document(doc)
+        self.apply_default_sort(self._document_tree)
 
         # ── Upload button ───────────────────────────────────────
         upload_frame = ttk.Frame(tab, style="TFrame")
@@ -1005,6 +1008,7 @@ class VisitDetailView(BaseView):
                 rx.get("duration", ""),
                 rx.get("instructions", ""),
             ), iid=str(rx.get("prescription_id", "")))
+        self.apply_default_sort(self._rx_tree)
 
     def update_reports(self, reports: List[Dict[str, Any]]) -> None:
         """Refresh the reports list.
@@ -1036,6 +1040,7 @@ class VisitDetailView(BaseView):
                 size_str,
                 upload_date,
             ), iid=str(r.get("report_id", "")))
+        self.apply_default_sort(self._report_tree)
 
     def update_documents(self, documents: List[Dict[str, Any]]) -> None:
         """Refresh the documents list.
@@ -1046,6 +1051,7 @@ class VisitDetailView(BaseView):
         self._document_tree.delete(*self._document_tree.get_children())
         for doc in documents:
             self._insert_document(doc)
+        self.apply_default_sort(self._document_tree)
 
 
 # ── Patient Timeline View ──────────────────────────────────────

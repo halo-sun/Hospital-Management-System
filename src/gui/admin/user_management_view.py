@@ -106,6 +106,7 @@ class UserManagementView(BaseView):
                 u.get("status", ""),
                 last,
             ), iid=str(u.get("user_id", "")))
+        self.apply_default_sort(self._tree)
 
     def _handle_reset_password(self) -> None:
         """Reset password for the selected user."""

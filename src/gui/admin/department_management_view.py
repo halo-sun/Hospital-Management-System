@@ -125,6 +125,7 @@ class DepartmentManagementView(BaseView):
                 d.get("description", "") or "",
                 d.get("doctor_count", 0),
             ), iid=str(d.get("department_id", "")))
+        self.apply_default_sort(self._tree)
 
     def _handle_edit(self) -> None:
         """Edit the selected department."""

@@ -226,6 +226,7 @@ class DoctorManagementView(BaseView):
                 d.get("contact_number", ""),
                 d.get("status", ""),
             ), iid=str(d.get("doctor_id", "")))
+        self.apply_default_sort(self._tree)
 
     def update_specializations(self, specializations: List[str]) -> None:
         """Update the specialization filter dropdown.

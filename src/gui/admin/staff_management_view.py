@@ -152,6 +152,7 @@ class StaffManagementView(BaseView):
                 s.get("status", ""),
                 last,
             ), iid=str(s.get("user_id", "")))
+        self.apply_default_sort(self._tree)
 
     def _handle_edit(self) -> None:
         """Edit the selected staff member."""

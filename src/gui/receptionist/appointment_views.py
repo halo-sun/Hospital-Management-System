@@ -358,6 +358,7 @@ class AppointmentListView(BaseView):
         self._tree.tag_configure("booked", foreground=Theme.ACCENT)
         self._tree.tag_configure("completed", foreground=Theme.SUCCESS)
         self._tree.tag_configure("cancelled", foreground=Theme.DANGER)
+        self.apply_default_sort(self._tree)
 
     def _handle_cancel(self) -> None:
         """Cancel the selected appointment."""
