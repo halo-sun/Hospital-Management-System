@@ -11,7 +11,7 @@
 
 ; ── Metadata (mirrors AppConfig in src/config/settings.py) ───────────────
 #define AppName         "Hospital Management System"
-#define AppVersion      "1.0.0"
+#define AppVersion      "1.0.1"
 #define AppPublisher    "Sidd && Contributors"
 #define AppCopyright    "2026 Sidd && Contributors"
 #define AppDescription  "A desktop hospital management system for scheduling, patient records, clinical workflows, and analytics."

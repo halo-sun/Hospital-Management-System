@@ -11,6 +11,7 @@ import tkinter as tk
 from tkinter import ttk
 from typing import Any, Callable, Dict
 
+from src.config.settings import AppConfig
 from src.gui.theme import Theme
 from src.gui.common.base_view import BaseView
 
@@ -144,7 +145,7 @@ class FirstRunSetupView(BaseView):
         self._submit_btn.pack(fill="x", ipady=4, pady=(8, 0))
 
         tk.Label(
-            card, text="v1.0.0  |  Secure First-Run Setup",
+            card, text=f"v{AppConfig.VERSION}  |  Secure First-Run Setup",
             bg=Theme.SURFACE, fg=Theme.SURFACE_MUTED, font=Theme.FONT_SMALL,
         ).pack(pady=(12, 0))
 

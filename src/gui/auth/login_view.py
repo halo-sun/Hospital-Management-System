@@ -4,6 +4,7 @@ from __future__ import annotations
 import tkinter as tk
 from tkinter import ttk, messagebox
 from typing import Optional, Callable, Dict, Any
+from src.config.settings import AppConfig
 from src.gui.theme import Theme
 from src.gui.common.base_view import BaseView, create_button
 
@@ -140,7 +141,7 @@ class LoginView(BaseView):
 
         # ── Version ────────────────────────────────────────────
         tk.Label(
-            card, text="v1.0.0  |  Secure Login",
+            card, text=f"v{AppConfig.VERSION}  |  Secure Login",
             bg=Theme.SURFACE, fg=Theme.SURFACE_MUTED, font=Theme.FONT_SMALL,
         ).pack(pady=(16, 0))
 

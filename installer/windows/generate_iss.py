@@ -17,6 +17,28 @@ if PROJECT_ROOT not in sys.path:
 
 from src.config.settings import AppConfig
 
+# ── Version resolution ──────────────────────────────────────────────────
+# During CI builds the git tag is the single source of truth.
+# BUILD_VERSION is set by the workflow; when absent (local/manual builds)
+# we fall back to AppConfig.VERSION.
+
+BUILD_VERSION: str = os.environ.get("BUILD_VERSION", "").strip()
+if BUILD_VERSION:
+    # Safety: fail early if the tag version doesn't match AppConfig.VERSION
+    # so genuine version-bump mistakes are caught before the installer is built.
+    if BUILD_VERSION != AppConfig.VERSION:
+        print(
+            f"ERROR: BUILD_VERSION ('{BUILD_VERSION}') does not match "
+            f"AppConfig.VERSION ('{AppConfig.VERSION}').\n"
+            f"Bump AppConfig.VERSION in src/config/settings.py to match "
+            f"the git tag, or vice versa.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    VERSION = BUILD_VERSION
+else:
+    VERSION = AppConfig.VERSION
+
 TEMPLATE = r'''; ============================================================================
 ; Inno Setup Script — Hospital Management System
 ; ============================================================================
@@ -169,7 +191,7 @@ begin
 end;
 '''.format(
     name=AppConfig.NAME,
-    version=AppConfig.VERSION,
+    version=VERSION,
     publisher=AppConfig.PUBLISHER.replace("&", "&&"),  # Inno Setup uses && for literal &
     copyright=AppConfig.COPYRIGHT.replace("&", "&&"),
     description=AppConfig.APP_DESCRIPTION,
@@ -182,7 +204,7 @@ def main() -> None:
         f.write(TEMPLATE)
     print(f"Generated {out_path}")
     print(f"  AppName:    {AppConfig.NAME}")
-    print(f"  Version:    {AppConfig.VERSION}")
+    print(f"  Version:    {VERSION}")
     print(f"  Publisher:  {AppConfig.PUBLISHER}")
     print(f"  Copyright:  {AppConfig.COPYRIGHT}")
 

@@ -100,6 +100,28 @@ jobs:
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "Building version: $VERSION"
 
+      # ── 5b. Verify tag matches AppConfig.VERSION ──────────────
+      - name: Verify tag matches AppConfig.VERSION
+        shell: bash
+        run: |
+          TAG_VERSION="${{ steps.version.outputs.version }}"
+          # Extract AppConfig.VERSION from source (no import needed)
+          CODE_VERSION=$(python -c "import re, pathlib; m=re.search(r'VERSION:\s*ClassVar\[str\]\s*=\s*\"([^\"]+)\"', pathlib.Path('src/config/settings.py').read_text()); print(m.group(1))")
+          echo "Git tag version: $TAG_VERSION"
+          echo "AppConfig.VERSION: $CODE_VERSION"
+          if [ "$TAG_VERSION" != "$CODE_VERSION" ]; then
+            echo "::error::Version mismatch: git tag says '$TAG_VERSION' but AppConfig.VERSION is '$CODE_VERSION'. Bump AppConfig.VERSION in src/config/settings.py to match the tag."
+            exit 1
+          fi
+          echo "Versions match: $TAG_VERSION"
+
+      # ── 5c. Export BUILD_VERSION for generate_iss.py ──────────
+      - name: Export BUILD_VERSION
+        shell: bash
+        run: |
+          echo "BUILD_VERSION=${{ steps.version.outputs.version }}" >> "$GITHUB_ENV"
+          echo "Set BUILD_VERSION=${{ steps.version.outputs.version }}"
+
       # ── 6. Build main application with PyInstaller ────────────
       - name: Build HospitalScheduler.exe
         run: pyinstaller hms.spec --noconfirm
@@ -121,8 +143,13 @@ jobs:
             ls -lh "$EXE"
           done
 
-      # ── 9. Compile Inno Setup installer ───────────────────────
+      # ── 9. Regenerate setup.iss and compile installer ─────────
       #    ISCC.exe is pre-installed on windows-latest runners.
+      #    generate_iss.py reads BUILD_VERSION from the environment
+      #    (set in step 5c) so the installer filename matches the tag.
+      - name: Regenerate setup.iss from AppConfig
+        run: python installer/windows/generate_iss.py
+
       - name: Compile installer (Inno Setup)
         run: |
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "installer\windows\setup.iss"
