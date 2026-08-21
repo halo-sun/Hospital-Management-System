@@ -12,6 +12,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from src.gui.theme import Theme
 from src.gui.common.base_view import BaseView
+from src.utils.formatters import format_date, parse_date_for_input, DISPLAY_DATE_FORMAT
 
 
 class SettingsView(BaseView):
@@ -129,7 +130,7 @@ class SettingsView(BaseView):
         add_frame = ttk.Frame(holidays, style="TFrame", padding=(0, 10, 0, 0))
         add_frame.pack(fill="x")
 
-        ttk.Label(add_frame, text="Date (YYYY-MM-DD):", font=Theme.FONT_BODY).pack(
+        ttk.Label(add_frame, text=f"Date ({DISPLAY_DATE_FORMAT}):", font=Theme.FONT_BODY).pack(
             side="left", padx=(0, 6),
         )
         self._holiday_date_var = tk.StringVar()
@@ -205,9 +206,7 @@ class SettingsView(BaseView):
         """Refresh the holiday list from the controller."""
         self._holiday_tree.delete(*self._holiday_tree.get_children())
         for holiday in self._on_load_holidays():
-            holiday_date = holiday.get("holiday_date", "")
-            if hasattr(holiday_date, "strftime"):
-                holiday_date = holiday_date.strftime("%Y-%m-%d")
+            holiday_date = format_date(holiday.get("holiday_date", ""))
             self._holiday_tree.insert(
                 "", "end",
                 iid=str(holiday.get("holiday_id", "")),
@@ -217,10 +216,9 @@ class SettingsView(BaseView):
     def _handle_add_holiday(self) -> None:
         """Validate and add a holiday, then refresh the list."""
         raw_date = self._holiday_date_var.get().strip()
-        try:
-            holiday_date = date.fromisoformat(raw_date)
-        except ValueError:
-            self.show_warning("Warning", "Invalid date. Use YYYY-MM-DD.")
+        holiday_date = parse_date_for_input(raw_date)
+        if holiday_date is None:
+            self.show_warning("Warning", f"Invalid date. Use {DISPLAY_DATE_FORMAT}.")
             return
 
         description = self._holiday_desc_var.get().strip()

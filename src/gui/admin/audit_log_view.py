@@ -14,6 +14,7 @@ from typing import Any, Callable, Dict, List, Optional
 from src.gui.theme import Theme
 from src.gui.common.base_view import BaseView
 from src.constants import AuditAction
+from src.utils.formatters import format_date, parse_date_for_input, DISPLAY_DATE_FORMAT, DISPLAY_DATETIME_FORMAT
 
 ALL_ACTIONS = "All Actions"
 
@@ -79,13 +80,13 @@ class AuditLogView(BaseView):
         filter_frame.pack(fill="x")
 
         ttk.Label(filter_frame, text="From:", font=Theme.FONT_BODY).pack(side="left", padx=(0, 4))
-        self._start_var = tk.StringVar(value=self._start_date.isoformat())
+        self._start_var = tk.StringVar(value=format_date(self._start_date))
         ttk.Entry(
             filter_frame, textvariable=self._start_var, width=12, font=Theme.FONT_BODY,
         ).pack(side="left", padx=(0, 12))
 
         ttk.Label(filter_frame, text="To:", font=Theme.FONT_BODY).pack(side="left", padx=(0, 4))
-        self._end_var = tk.StringVar(value=self._end_date.isoformat())
+        self._end_var = tk.StringVar(value=format_date(self._end_date))
         ttk.Entry(
             filter_frame, textvariable=self._end_var, width=12, font=Theme.FONT_BODY,
         ).pack(side="left", padx=(0, 12))
@@ -143,17 +144,16 @@ class AuditLogView(BaseView):
         """
         self._end_date = date.today()
         self._start_date = self._end_date - timedelta(days=days_back)
-        self._start_var.set(self._start_date.isoformat())
-        self._end_var.set(self._end_date.isoformat())
+        self._start_var.set(format_date(self._start_date))
+        self._end_var.set(format_date(self._end_date))
         self._load_data()
 
     def _load_data(self) -> None:
         """Parse the filters, fetch rows, and refresh the table."""
-        try:
-            start = date.fromisoformat(self._start_var.get().strip())
-            end = date.fromisoformat(self._end_var.get().strip())
-        except (ValueError, AttributeError):
-            self.show_warning("Warning", "Invalid date format. Use YYYY-MM-DD.")
+        start = parse_date_for_input(self._start_var.get().strip())
+        end = parse_date_for_input(self._end_var.get().strip())
+        if start is None or end is None:
+            self.show_warning("Warning", f"Invalid date format. Use {DISPLAY_DATE_FORMAT}.")
             return
 
         if start > end:
@@ -198,7 +198,7 @@ class AuditLogView(BaseView):
 
     @staticmethod
     def _format_timestamp(value: Any) -> str:
-        """Render a timestamp as ``YYYY-MM-DD HH:MM:SS``.
+        """Render a timestamp as ``DD-MM-YYYY HH:MM:SS``.
 
         Args:
             value: A datetime/date, or a pre-formatted string.
@@ -206,8 +206,16 @@ class AuditLogView(BaseView):
         Returns:
             The formatted timestamp string.
         """
+        from datetime import datetime as _dt
         if hasattr(value, "strftime"):
-            return value.strftime("%Y-%m-%d %H:%M:%S")
+            return value.strftime("%d-%m-%Y %H:%M:%S")
+        # Try to parse a string timestamp
+        if isinstance(value, str) and value:
+            for fmt in ("%Y-%m-%d %H:%M:%S", "%d-%m-%Y %H:%M:%S"):
+                try:
+                    return _dt.strptime(value, fmt).strftime("%d-%m-%Y %H:%M:%S")
+                except ValueError:
+                    continue
         return str(value)
 
     @staticmethod

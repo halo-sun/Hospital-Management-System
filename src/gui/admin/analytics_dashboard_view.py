@@ -16,6 +16,7 @@ from tkinter import ttk, messagebox, filedialog
 from src.gui.theme import Theme
 from src.gui.common.base_view import BaseView
 from src.gui.admin.chart_widget import AnalyticsChartWidget
+from src.utils.formatters import format_date, parse_date_for_input, DISPLAY_DATE_FORMAT
 from src.services.export_service import (
     export_analytics_pdf,
     export_analytics_excel,
@@ -88,12 +89,12 @@ class AnalyticsDashboardView(BaseView):
         filter_frame.pack(fill="x")
 
         ttk.Label(filter_frame, text="From:", font=Theme.FONT_BODY).pack(side="left", padx=(0, 4))
-        self._start_var = tk.StringVar(value=self._start_date.isoformat())
+        self._start_var = tk.StringVar(value=format_date(self._start_date))
         start_entry = ttk.Entry(filter_frame, textvariable=self._start_var, width=12, font=Theme.FONT_BODY)
         start_entry.pack(side="left", padx=(0, 12))
 
         ttk.Label(filter_frame, text="To:", font=Theme.FONT_BODY).pack(side="left", padx=(0, 4))
-        self._end_var = tk.StringVar(value=self._end_date.isoformat())
+        self._end_var = tk.StringVar(value=format_date(self._end_date))
         end_entry = ttk.Entry(filter_frame, textvariable=self._end_var, width=12, font=Theme.FONT_BODY)
         end_entry.pack(side="left", padx=(0, 12))
 
@@ -152,17 +153,16 @@ class AnalyticsDashboardView(BaseView):
         """
         self._end_date = date.today()
         self._start_date = self._end_date - timedelta(days=days_back)
-        self._start_var.set(self._start_date.isoformat())
-        self._end_var.set(self._end_date.isoformat())
+        self._start_var.set(format_date(self._start_date))
+        self._end_var.set(format_date(self._end_date))
         self._load_data()
 
     def _load_data(self) -> None:
         """Parse date inputs and fetch analytics data."""
-        try:
-            self._start_date = date.fromisoformat(self._start_var.get().strip())
-            self._end_date = date.fromisoformat(self._end_var.get().strip())
-        except (ValueError, AttributeError):
-            messagebox.showwarning("Warning", "Invalid date format. Use YYYY-MM-DD.", parent=self)
+        self._start_date = parse_date_for_input(self._start_var.get().strip())
+        self._end_date = parse_date_for_input(self._end_var.get().strip())
+        if self._start_date is None or self._end_date is None:
+            messagebox.showwarning("Warning", f"Invalid date format. Use {DISPLAY_DATE_FORMAT}.", parent=self)
             return
 
         if self._start_date > self._end_date:

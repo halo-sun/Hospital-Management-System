@@ -17,6 +17,7 @@ from tkinter import ttk
 from src.gui.theme import Theme
 from src.gui.common.base_view import BaseView
 from src.constants import ReportType
+from src.utils.formatters import format_date, format_datetime, parse_date_for_input, DISPLAY_DATE_FORMAT
 
 logger = logging.getLogger(__name__)
 
@@ -216,9 +217,7 @@ class ClinicalRecordsView(BaseView):
         card.pack(fill="x", padx=8, pady=(0, 8))
 
         # Date header
-        visit_date = visit.get("visit_date", "")
-        if hasattr(visit_date, "strftime"):
-            visit_date = visit_date.strftime("%b %d, %Y")
+        visit_date = format_date(visit.get("visit_date", ""))
 
         header_frame = ttk.Frame(card, style="Card.TFrame")
         header_frame.pack(fill="x")
@@ -355,10 +354,9 @@ class VisitFormView(BaseView):
         row = 0
 
         # Visit date
-        default_date = str(self._edit_data.get("visit_date", date.today()))
-        if hasattr(default_date, "strftime"):
-            default_date = default_date.strftime("%Y-%m-%d")
-        self._add_text_field(form, "Visit Date (YYYY-MM-DD)", "visit_date", row, default=default_date)
+        raw_date = self._edit_data.get("visit_date", date.today())
+        default_date = format_date(raw_date) if hasattr(raw_date, "strftime") or isinstance(raw_date, str) else format_date(date.today())
+        self._add_text_field(form, f"Visit Date ({DISPLAY_DATE_FORMAT})", "visit_date", row, default=default_date)
         row += 1
 
         # Symptoms (multi-line)
@@ -392,10 +390,9 @@ class VisitFormView(BaseView):
         row += 1
 
         # Follow-up date
-        default_fu = str(self._edit_data.get("follow_up_date", ""))
-        if hasattr(default_fu, "strftime"):
-            default_fu = default_fu.strftime("%Y-%m-%d")
-        self._add_text_field(form, "Follow-up Date (YYYY-MM-DD, optional)", "follow_up_date", row, default=default_fu)
+        raw_fu = self._edit_data.get("follow_up_date", "")
+        default_fu = format_date(raw_fu) if raw_fu and (hasattr(raw_fu, "strftime") or isinstance(raw_fu, str)) else ""
+        self._add_text_field(form, f"Follow-up Date ({DISPLAY_DATE_FORMAT}, optional)", "follow_up_date", row, default=default_fu)
         row += 1
 
         # Buttons
@@ -628,9 +625,7 @@ class VisitDetailView(BaseView):
         card = ttk.Frame(info_frame, style="Card.TFrame", padding=16)
         card.pack(fill="x")
 
-        visit_date = self._visit_data.get("visit_date", "")
-        if hasattr(visit_date, "strftime"):
-            visit_date = visit_date.strftime("%Y-%m-%d")
+        visit_date = format_date(self._visit_data.get("visit_date", ""))
 
         fields = [
             ("Patient", self._visit_data.get("patient_name", self._visit_data.get("patient_id", ""))),
@@ -754,9 +749,7 @@ class VisitDetailView(BaseView):
 
         # Populate reports
         for r in self._visit_data.get("reports", []):
-            upload_date = r.get("upload_date", "")
-            if hasattr(upload_date, "strftime"):
-                upload_date = upload_date.strftime("%Y-%m-%d %H:%M")
+            upload_date = format_datetime(r.get("upload_date", ""))
 
             size = r.get("file_size", 0)
             if size:
@@ -895,9 +888,7 @@ class VisitDetailView(BaseView):
         Args:
             doc: Document record dict.
         """
-        upload_date = doc.get("upload_date", "")
-        if hasattr(upload_date, "strftime"):
-            upload_date = upload_date.strftime("%Y-%m-%d %H:%M")
+        upload_date = format_datetime(doc.get("upload_date", ""))
 
         size = doc.get("file_size", 0)
         if size:
@@ -1018,9 +1009,7 @@ class VisitDetailView(BaseView):
         """
         self._report_tree.delete(*self._report_tree.get_children())
         for r in reports:
-            upload_date = r.get("upload_date", "")
-            if hasattr(upload_date, "strftime"):
-                upload_date = upload_date.strftime("%Y-%m-%d %H:%M")
+            upload_date = format_datetime(r.get("upload_date", ""))
 
             size = r.get("file_size", 0)
             if size:
@@ -1166,9 +1155,7 @@ class PatientTimelineView(BaseView):
         card = ttk.Frame(parent, style="Card.TFrame", padding=16)
         card.pack(fill="x", pady=(0, 12))
 
-        visit_date = visit.get("visit_date", "")
-        if hasattr(visit_date, "strftime"):
-            visit_date = visit_date.strftime("%b %d, %Y")
+        visit_date = format_date(visit.get("visit_date", ""))
 
         # Header row
         header_row = ttk.Frame(card, style="Card.TFrame")

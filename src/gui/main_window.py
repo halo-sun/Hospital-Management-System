@@ -13,6 +13,7 @@ from typing import Optional, Dict, Any, Callable
 
 from src.gui.theme import Theme
 from src.gui.common.sidebar import Sidebar
+from src.utils.formatters import DISPLAY_DATETIME_FORMAT
 from src.config import app_config
 
 
@@ -143,7 +144,7 @@ class MainWindow:
         logout flow (which destroys this window), so the clock is not
         rescheduled.
         """
-        now = datetime.now().strftime("%Y-%m-%d  %H:%M")
+        now = datetime.now().strftime(DISPLAY_DATETIME_FORMAT)
         self._status_clock.configure(text=now)
         if self._on_session_expired and self._on_session_expired():
             return

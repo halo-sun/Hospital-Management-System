@@ -8,6 +8,7 @@ from tkinter import ttk, messagebox
 from typing import Optional, Callable, Dict, Any, List
 from src.gui.theme import Theme
 from src.gui.common.base_view import BaseView
+from src.utils.formatters import format_datetime
 from src.constants import UserStatus
 
 
@@ -140,9 +141,7 @@ class StaffManagementView(BaseView):
         """
         self._tree.delete(*self._tree.get_children())
         for s in staff:
-            last = s.get("last_login", "")
-            if hasattr(last, "strftime"):
-                last = last.strftime("%Y-%m-%d %H:%M")
+            last = format_datetime(s.get("last_login", ""))
             self._tree.insert("", "end", values=(
                 s.get("user_id", ""),
                 s.get("username", ""),

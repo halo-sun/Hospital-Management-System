@@ -4,6 +4,7 @@ from tkinter import ttk, messagebox
 from typing import Optional, Callable, Dict, Any, List
 from src.gui.theme import Theme
 from src.gui.common.base_view import BaseView
+from src.utils.formatters import format_datetime
 
 
 class UserManagementView(BaseView):
@@ -94,9 +95,7 @@ class UserManagementView(BaseView):
         """
         self._tree.delete(*self._tree.get_children())
         for u in users:
-            last = u.get("last_login", "")
-            if hasattr(last, "strftime"):
-                last = last.strftime("%Y-%m-%d %H:%M")
+            last = format_datetime(u.get("last_login", ""))
             self._tree.insert("", "end", values=(
                 u.get("user_id", ""),
                 u.get("username", ""),

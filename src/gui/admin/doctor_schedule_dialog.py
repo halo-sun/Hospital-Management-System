@@ -9,6 +9,7 @@ from datetime import time
 from typing import Optional, Callable, Dict, Any, List, Tuple
 from src.gui.theme import Theme
 from src.utils.validators import validate_schedule_data
+from src.utils.formatters import format_date, parse_date_for_input, DISPLAY_DATE_FORMAT
 
 
 # ── Day names ──────────────────────────────────────────────────
@@ -309,14 +310,14 @@ class DoctorLeaveDialog(tk.Toplevel):
         )
 
         # Start date
-        ttk.Label(form, text="Start Date (YYYY-MM-DD) *", font=Theme.FONT_BODY).pack(anchor="w")
+        ttk.Label(form, text=f"Start Date ({DISPLAY_DATE_FORMAT}) *", font=Theme.FONT_BODY).pack(anchor="w")
         self._start_var = tk.StringVar()
         ttk.Entry(form, textvariable=self._start_var, width=30, font=Theme.FONT_BODY).pack(
             fill="x", pady=(2, 12)
         )
 
         # End date
-        ttk.Label(form, text="End Date (YYYY-MM-DD) *", font=Theme.FONT_BODY).pack(anchor="w")
+        ttk.Label(form, text=f"End Date ({DISPLAY_DATE_FORMAT}) *", font=Theme.FONT_BODY).pack(anchor="w")
         self._end_var = tk.StringVar()
         ttk.Entry(form, textvariable=self._end_var, width=30, font=Theme.FONT_BODY).pack(
             fill="x", pady=(2, 12)

@@ -16,6 +16,7 @@ from tkinter import ttk, messagebox, filedialog
 
 from src.gui.theme import Theme
 from src.gui.common.base_view import BaseView
+from src.utils.formatters import format_date, parse_date_for_input, DISPLAY_DATE_FORMAT
 
 logger = logging.getLogger(__name__)
 
@@ -116,7 +117,7 @@ class ReportsView(BaseView):
         ttk.Label(self._date_frame, text="From:", font=Theme.FONT_BODY).pack(
             side="left", padx=(0, 4),
         )
-        self._start_var = tk.StringVar(value=self._start_date.isoformat())
+        self._start_var = tk.StringVar(value=format_date(self._start_date))
         ttk.Entry(
             self._date_frame, textvariable=self._start_var, width=12,
             font=Theme.FONT_BODY,
@@ -125,7 +126,7 @@ class ReportsView(BaseView):
         ttk.Label(self._date_frame, text="To:", font=Theme.FONT_BODY).pack(
             side="left", padx=(0, 4),
         )
-        self._end_var = tk.StringVar(value=self._end_date.isoformat())
+        self._end_var = tk.StringVar(value=format_date(self._end_date))
         ttk.Entry(
             self._date_frame, textvariable=self._end_var, width=12,
             font=Theme.FONT_BODY,
@@ -214,8 +215,8 @@ class ReportsView(BaseView):
         """
         self._end_date = date.today()
         self._start_date = self._end_date - timedelta(days=days_back)
-        self._start_var.set(self._start_date.isoformat())
-        self._end_var.set(self._end_date.isoformat())
+        self._start_var.set(format_date(self._start_date))
+        self._end_var.set(format_date(self._end_date))
 
     def _parse_dates(self) -> Tuple[Optional[date], Optional[date]]:
         """Parse and validate the date range from the entry fields.
@@ -229,12 +230,11 @@ class ReportsView(BaseView):
         if not needs_date:
             return None, None
 
-        try:
-            start = date.fromisoformat(self._start_var.get().strip())
-            end = date.fromisoformat(self._end_var.get().strip())
-        except (ValueError, AttributeError):
+        start = parse_date_for_input(self._start_var.get().strip())
+        end = parse_date_for_input(self._end_var.get().strip())
+        if start is None or end is None:
             messagebox.showwarning(
-                "Warning", "Invalid date format. Use YYYY-MM-DD.", parent=self,
+                "Warning", f"Invalid date format. Use {DISPLAY_DATE_FORMAT}.", parent=self,
             )
             return None, None
 
