@@ -58,6 +58,22 @@ def format_datetime(value: Optional[Union[datetime, str]]) -> str:
     return format_date(value, fmt=DISPLAY_DATETIME_FORMAT)
 
 
+def parse_date_for_input(s: str) -> Optional[date]:
+    """Parse a user-entered date string into a date object.
+
+    Tries DD-MM-YYYY first (our canonical format), then falls back to
+    other common formats for backwards compatibility.  Use this in all
+    view code that needs to convert user input to a date.
+
+    Args:
+        s: Date string to parse.
+
+    Returns:
+        Parsed date, or None if unparseable.
+    """
+    return _parse_date_string(s)
+
+
 def _parse_date_string(s: str) -> Optional[date]:
     """Parse a date string from common formats.
 

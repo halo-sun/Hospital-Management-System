@@ -225,12 +225,13 @@ descending; clicking a different header resets to ascending.
                 if not val:
                     return (1, "")  # empty values sort last
                 if use_date:
-                    # Try ISO date (YYYY-MM-DD) or time (HH:MM)
-                    try:
-                        return (0, datetime.strptime(
-                            str(val)[:10], "%Y-%m-%d"))
-                    except ValueError:
-                        pass
+                    # Try DD-MM-YYYY first (canonical), then YYYY-MM-DD, then time
+                    for date_fmt in ("%d-%m-%Y", "%Y-%m-%d"):
+                        try:
+                            return (0, datetime.strptime(
+                                str(val)[:10], date_fmt))
+                        except ValueError:
+                            pass
                     try:
                         return (0, datetime.strptime(
                             str(val)[:5], "%H:%M"))
@@ -276,11 +277,12 @@ descending; clicking a different header resets to ascending.
                     if not val:
                         return (1, "")
                     if use_date:
-                        try:
-                            return (0, datetime.strptime(
-                                str(val)[:10], "%Y-%m-%d"))
-                        except ValueError:
-                            pass
+                        for date_fmt in ("%d-%m-%Y", "%Y-%m-%d"):
+                            try:
+                                return (0, datetime.strptime(
+                                    str(val)[:10], date_fmt))
+                            except ValueError:
+                                pass
                         try:
                             return (0, datetime.strptime(
                                 str(val)[:5], "%H:%M"))
@@ -388,11 +390,12 @@ descending; clicking a different header resets to ascending.
             if not val:
                 return (1, "")
             if use_date:
-                try:
-                    return (0, datetime.strptime(
-                        str(val)[:10], "%Y-%m-%d"))
-                except ValueError:
-                    pass
+                for date_fmt in ("%d-%m-%Y", "%Y-%m-%d"):
+                    try:
+                        return (0, datetime.strptime(
+                            str(val)[:10], date_fmt))
+                    except ValueError:
+                        pass
                 try:
                     return (0, datetime.strptime(
                         str(val)[:5], "%H:%M"))

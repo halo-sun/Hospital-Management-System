@@ -5,6 +5,7 @@ from datetime import date, time, datetime, timedelta
 from typing import Optional, Callable, Dict, Any, List
 from src.gui.theme import Theme
 from src.gui.common.base_view import BaseView
+from src.utils.formatters import format_date, parse_date_for_input
 
 
 class AppointmentBookingView(BaseView):
@@ -75,8 +76,8 @@ class AppointmentBookingView(BaseView):
         row += 1
 
         # Date
-        ttk.Label(form, text="Date (YYYY-MM-DD) *", font=Theme.FONT_BODY).grid(row=row, column=0, sticky="w", padx=(0, 8), pady=6)
-        self._date_var = tk.StringVar(value=date.today().strftime("%Y-%m-%d"))
+        ttk.Label(form, text="Date (DD-MM-YYYY) *", font=Theme.FONT_BODY).grid(row=row, column=0, sticky="w", padx=(0, 8), pady=6)
+        self._date_var = tk.StringVar(value=format_date(date.today()))
         date_entry = ttk.Entry(form, textvariable=self._date_var, width=50, font=Theme.FONT_BODY)
         date_entry.grid(row=row, column=1, sticky="ew", pady=6)
         row += 1
@@ -229,10 +230,9 @@ class AppointmentBookingView(BaseView):
         if not self._selected_doctor_id:
             messagebox.showwarning("Warning", "Please select a doctor first.", parent=self)
             return
-        try:
-            self._selected_date = datetime.strptime(self._date_var.get(), "%Y-%m-%d").date()
-        except ValueError:
-            messagebox.showwarning("Warning", "Please enter a valid date (YYYY-MM-DD).", parent=self)
+        self._selected_date = parse_date_for_input(self._date_var.get())
+        if self._selected_date is None:
+            messagebox.showwarning("Warning", "Please enter a valid date (DD-MM-YYYY).", parent=self)
             return
         self._on_book(("load_slots", self._selected_doctor_id, self._selected_date))
 
@@ -336,9 +336,7 @@ class AppointmentListView(BaseView):
         """
         self._tree.delete(*self._tree.get_children())
         for a in appointments:
-            appt_date = a.get("appointment_date", "")
-            if hasattr(appt_date, "strftime"):
-                appt_date = appt_date.strftime("%Y-%m-%d")
+            appt_date = format_date(a.get("appointment_date", ""))
             start = a.get("start_time", "")
             end = a.get("end_time", "")
             if hasattr(start, "strftime"):
