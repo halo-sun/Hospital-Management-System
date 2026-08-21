@@ -236,43 +236,34 @@ jobs:
       - name: Regenerate setup.iss from AppConfig
         run: python installer/windows/generate_iss.py
 
-      # ── DIAGNOSTIC B: Dump setup.iss and check resolved paths from CI's CWD ──
-      - name: DIAGNOSTIC - dump setup.iss and resolved paths before ISCC
+      # ── DIAGNOSTIC B: Dump FULL RAW setup.iss content ──────────────────
+      - name: DIAGNOSTIC - full raw setup.iss content
         run: |
+          Write-Host "=== FULL RAW setup.iss CONTENT ==="
+          Get-Content installer\windows\setup.iss -Raw
+          Write-Host "=== END setup.iss ==="
+          Write-Host ""
           Write-Host "=== Current working directory ==="
           Get-Location
-          Write-Host ""
-          Write-Host "=== setup.iss [Files] section (all lines) ==="
-          $content = Get-Content installer\windows\setup.iss
-          $inFiles = $false
-          foreach ($line in $content) {
-            if ($line -match '^\[Files\]') { $inFiles = $true }
-            if ($inFiles -and $line -match '^\[' -and $line -notmatch '^\[Files\]') { $inFiles = $false }
-            if ($inFiles) { Write-Host $line }
-          }
-          Write-Host ""
-          Write-Host "=== #define for MainDistDir / SetupDistDir ==="
-          Select-String -Path installer\windows\setup.iss -Pattern 'define.*(MainDistDir|SetupDistDir)' | ForEach-Object { Write-Host $_.Line }
           Write-Host ""
           Write-Host "=== Does dist\HospitalScheduler exist from CWD? ==="
           Test-Path "dist\HospitalScheduler"
           if (Test-Path "dist\HospitalScheduler") {
-            Write-Host "File count in dist\HospitalScheduler from CWD:"
+            Write-Host "File count:"
             (Get-ChildItem "dist\HospitalScheduler" -File | Measure-Object).Count
           }
-          Write-Host ""
           Write-Host "=== Does dist\HMS-Setup exist from CWD? ==="
           Test-Path "dist\HMS-Setup"
           if (Test-Path "dist\HMS-Setup") {
-            Write-Host "File count in dist\HMS-Setup from CWD:"
+            Write-Host "File count:"
             (Get-ChildItem "dist\HMS-Setup" -File | Measure-Object).Count
           }
           Write-Host ""
-          Write-Host "=== Full resolved path check ==="
-          Write-Host "Repo root CWD: $(Get-Location)"
-          Write-Host "installer\windows\setup.iss exists: $(Test-Path 'installer\windows\setup.iss')"
-          Write-Host "dist\HospitalScheduler exists: $(Test-Path 'dist\HospitalScheduler')"
-          Write-Host "dist\HMS-Setup exists: $(Test-Path 'dist\HMS-Setup')"
+          Write-Host "=== Hex dump of #define MainDistDir line ==="
+          $line = (Select-String -Path installer\windows\setup.iss -Pattern 'define.*MainDistDir').Line
+          $bytes = [System.Text.Encoding]::ASCII.GetBytes($line)
+          Write-Host "Hex: $($bytes | ForEach-Object { '{0:x2}' -f $_ } | Join-String -Separator '')"
+          Write-Host "Length: $($line.Length)"
         shell: pwsh
 
       - name: Compile installer (Inno Setup) - VERBOSE
