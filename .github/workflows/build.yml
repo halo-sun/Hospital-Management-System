@@ -271,26 +271,6 @@ jobs:
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /V9 "installer\windows\setup.iss"
         shell: pwsh
 
-      # ── DIAGNOSTIC C: Inspect actual compiled installer contents ──
-      - name: DIAGNOSTIC - inspect compiled installer contents with 7-Zip
-        run: |
-          Write-Host "=== Installing 7-Zip ==="
-          choco install 7zip -y --no-progress
-          Write-Host ""
-          Write-Host "=== Looking for installer in dist\ ==="
-          Get-ChildItem dist\*-Setup.exe | ForEach-Object {
-            Write-Host "Found: $($_.FullName) ($($_.Length) bytes)"
-            Write-Host ""
-            Write-Host "=== Contents of $($_.Name) via 7z ==="
-            & "C:\Program Files\7-Zip\7z.exe" l $_.FullName
-          }
-          if (-not (Get-ChildItem dist\*-Setup.exe -ErrorAction SilentlyContinue)) {
-            Write-Host "ERROR: No *-Setup.exe found in dist\"
-            Write-Host "Contents of dist\:"
-            Get-ChildItem dist\ -Recurse | Select-Object FullName, Length | Format-Table -AutoSize
-          }
-        shell: pwsh
-
       # ── 10. Verify installer exists ────────────────────────────
       - name: Verify installer output
         shell: bash
