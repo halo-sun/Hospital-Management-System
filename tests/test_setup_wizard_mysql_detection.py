@@ -2,7 +2,7 @@
 
 The setup wizard previously hardcoded 'mysql80' as the Windows service name,
 causing it to miss other MySQL versions (MySQL91, MySQL267, etc.).  These tests
-verify the new pattern-based detection logic.
+verify the new pattern-based detection logic using sc query state=all.
 """
 from __future__ import annotations
 
@@ -12,170 +12,188 @@ from unittest.mock import patch, MagicMock
 import pytest
 
 
-class TestFindMysqlService:
-    """Tests for SetupWizardView._find_mysql_service (static method)."""
+# ── Sample sc query state=all output ────────────────────────────────
 
-    POWERSHELL_CMD = [
-        "powershell", "-NoProfile", "-Command",
-        "Get-Service | Where-Object { $_.Name -match '^(MySQL|MariaDB)' }"
-        " | Select-Object Name, Status, DisplayName | Format-List",
-    ]
+def _sc_output(services: list[tuple[str, str]]) -> str:
+    """Build ``sc query state=all`` output from (name, state) tuples.
 
-    def _make_output(self, services: list[tuple[str, str, str]]) -> str:
-        """Build Format-List output from (Name, Status, DisplayName) tuples."""
-        blocks = []
-        for name, status, display in services:
-            blocks.append(f"Name           : {name}")
-            blocks.append(f"Status         : {status}")
-            blocks.append(f"DisplayName    : {display}")
-        return "\n".join(blocks)
+    Each service block in the real output looks like:
+
+        SERVICE_NAME: MySQL267
+            ...
+            STATE              : 4  RUNNING
+            ...
+    """
+    blocks = []
+    for name, state in services:
+        # Map human label to the numeric prefix sc uses
+        state_map = {
+            "RUNNING": "4  RUNNING",
+            "STOPPED": "1  STOPPED",
+            "PAUSED": "7  PAUSED",
+        }
+        state_line = state_map.get(state.upper(), f"?  {state.upper()}")
+        blocks.append(
+            f"SERVICE_NAME: {name}\n"
+            f"        TYPE               : 10  WIN32_OWN_PROCESS\n"
+            f"        STATE              : {state_line}\n"
+            f"        WIN32_EXIT_CODE    : 0  (0x0)\n"
+        )
+    return "\n".join(blocks)
+
+
+class TestEnumerateMysqlServices:
+    """Tests for SetupWizardView._enumerate_mysql_services (static method)."""
 
     @patch("subprocess.run")
     def test_detects_mysql267_running(self, mock_run):
         """MySQL267 (the user's install) should be detected."""
         from src.gui.setup.setup_wizard_view import SetupWizardView
 
-        output = self._make_output([
-            ("MySQL267", "Running", "MySQL 26.7"),
-        ])
-        mock_run.return_value = MagicMock(returncode=0, stdout=output, stderr="")
-
-        result = SetupWizardView._find_mysql_service()
-        assert result == "MySQL267"
+        mock_run.return_value = MagicMock(
+            returncode=0,
+            stdout=_sc_output([("MySQL267", "RUNNING")]),
+            stderr="",
+        )
+        result = SetupWizardView._enumerate_mysql_services()
+        assert result == [("MySQL267", "RUNNING")]
 
     @patch("subprocess.run")
     def test_detects_mysql80_running(self, mock_run):
         """MySQL80 should still be detected (backward compat)."""
         from src.gui.setup.setup_wizard_view import SetupWizardView
 
-        output = self._make_output([
-            ("MySQL80", "Running", "MySQL 8.0"),
-        ])
-        mock_run.return_value = MagicMock(returncode=0, stdout=output, stderr="")
-
-        result = SetupWizardView._find_mysql_service()
-        assert result == "MySQL80"
+        mock_run.return_value = MagicMock(
+            returncode=0,
+            stdout=_sc_output([("MySQL80", "RUNNING")]),
+            stderr="",
+        )
+        result = SetupWizardView._enumerate_mysql_services()
+        assert result == [("MySQL80", "RUNNING")]
 
     @patch("subprocess.run")
     def test_detects_mariadb_running(self, mock_run):
         """MariaDB service should be detected."""
         from src.gui.setup.setup_wizard_view import SetupWizardView
 
-        output = self._make_output([
-            ("MariaDB", "Running", "MariaDB Server"),
-        ])
-        mock_run.return_value = MagicMock(returncode=0, stdout=output, stderr="")
-
-        result = SetupWizardView._find_mysql_service()
-        assert result == "MariaDB"
-
-    @patch("subprocess.run")
-    def test_skips_stopped_service(self, mock_run):
-        """A stopped MySQL267 should NOT be returned by _find_mysql_service."""
-        from src.gui.setup.setup_wizard_view import SetupWizardView
-
-        output = self._make_output([
-            ("MySQL267", "Stopped", "MySQL 26.7"),
-        ])
-        mock_run.return_value = MagicMock(returncode=0, stdout=output, stderr="")
-
-        result = SetupWizardView._find_mysql_service()
-        assert result is None
+        mock_run.return_value = MagicMock(
+            returncode=0,
+            stdout=_sc_output([("MariaDB", "RUNNING")]),
+            stderr="",
+        )
+        result = SetupWizardView._enumerate_mysql_services()
+        assert result == [("MariaDB", "RUNNING")]
 
     @patch("subprocess.run")
-    def test_returns_first_running_when_multiple(self, mock_run):
-        """When multiple MySQL services exist, returns the first running one."""
+    def test_detects_stopped_service(self, mock_run):
+        """A stopped MySQL267 should appear with state STOPPED."""
         from src.gui.setup.setup_wizard_view import SetupWizardView
 
-        output = self._make_output([
-            ("MySQL80", "Stopped", "MySQL 8.0"),
-            ("MySQL267", "Running", "MySQL 26.7"),
-        ])
-        mock_run.return_value = MagicMock(returncode=0, stdout=output, stderr="")
+        mock_run.return_value = MagicMock(
+            returncode=0,
+            stdout=_sc_output([("MySQL267", "STOPPED")]),
+            stderr="",
+        )
+        result = SetupWizardView._enumerate_mysql_services()
+        assert result == [("MySQL267", "STOPPED")]
 
-        result = SetupWizardView._find_mysql_service()
-        assert result == "MySQL267"
+    @patch("subprocess.run")
+    def test_skips_non_mysql_services(self, mock_run):
+        """Non-MySQL services should be ignored."""
+        from src.gui.setup.setup_wizard_view import SetupWizardView
+
+        mock_run.return_value = MagicMock(
+            returncode=0,
+            stdout=_sc_output([
+                ("WSearch", "RUNNING"),
+                ("MySQL267", "RUNNING"),
+                ("Spooler", "STOPPED"),
+            ]),
+            stderr="",
+        )
+        result = SetupWizardView._enumerate_mysql_services()
+        assert result == [("MySQL267", "RUNNING")]
+
+    @patch("subprocess.run")
+    def test_multiple_mysql_services(self, mock_run):
+        """Multiple MySQL services should all be returned."""
+        from src.gui.setup.setup_wizard_view import SetupWizardView
+
+        mock_run.return_value = MagicMock(
+            returncode=0,
+            stdout=_sc_output([
+                ("MySQL80", "STOPPED"),
+                ("MySQL267", "RUNNING"),
+            ]),
+            stderr="",
+        )
+        result = SetupWizardView._enumerate_mysql_services()
+        assert result == [("MySQL80", "STOPPED"), ("MySQL267", "RUNNING")]
 
     @patch("subprocess.run")
     def test_no_mysql_services(self, mock_run):
-        """When no MySQL services exist, returns None."""
+        """When no MySQL services exist, returns empty list."""
         from src.gui.setup.setup_wizard_view import SetupWizardView
 
-        mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
-
-        result = SetupWizardView._find_mysql_service()
-        assert result is None
+        mock_run.return_value = MagicMock(
+            returncode=0,
+            stdout=_sc_output([("WSearch", "RUNNING"), ("Spooler", "STOPPED")]),
+            stderr="",
+        )
+        result = SetupWizardView._enumerate_mysql_services()
+        assert result == []
 
     @patch("subprocess.run")
-    def test_powershell_not_available(self, mock_run):
-        """Gracefully handles PowerShell not being installed."""
+    def test_sc_query_fails(self, mock_run):
+        """Gracefully handles sc query failure."""
         from src.gui.setup.setup_wizard_view import SetupWizardView
 
-        mock_run.side_effect = FileNotFoundError("powershell not found")
-
-        result = SetupWizardView._find_mysql_service()
-        assert result is None
+        mock_run.return_value = MagicMock(returncode=1, stdout="", stderr="error")
+        result = SetupWizardView._enumerate_mysql_services()
+        assert result == []
 
     @patch("subprocess.run")
-    def test_powershell_timeout(self, mock_run):
-        """Gracefully handles PowerShell timeout."""
+    def test_sc_query_not_found(self, mock_run):
+        """Gracefully handles sc.exe not being available."""
         from src.gui.setup.setup_wizard_view import SetupWizardView
 
-        mock_run.side_effect = subprocess.TimeoutExpired(cmd="powershell", timeout=15)
-
-        result = SetupWizardView._find_mysql_service()
-        assert result is None
-
-
-class TestFindMysqlServiceStopped:
-    """Tests for SetupWizardView._find_mysql_service_stopped (static method)."""
-
-    POWERSHELL_CMD = [
-        "powershell", "-NoProfile", "-Command",
-        "Get-Service | Where-Object { $_.Name -match '^(MySQL|MariaDB)' }"
-        " | Select-Object Name, Status | Format-List",
-    ]
-
-    def _make_output(self, services: list[tuple[str, str]]) -> str:
-        """Build Format-List output from (Name, Status) tuples."""
-        blocks = []
-        for name, status in services:
-            blocks.append(f"Name           : {name}")
-            blocks.append(f"Status         : {status}")
-        return "\n".join(blocks)
+        mock_run.side_effect = FileNotFoundError("sc.exe not found")
+        result = SetupWizardView._enumerate_mysql_services()
+        assert result == []
 
     @patch("subprocess.run")
-    def test_finds_stopped_mysql267(self, mock_run):
-        """Should find a stopped MySQL267 service."""
+    def test_sc_query_timeout(self, mock_run):
+        """Gracefully handles timeout."""
         from src.gui.setup.setup_wizard_view import SetupWizardView
 
-        output = self._make_output([
-            ("MySQL267", "Stopped"),
-        ])
-        mock_run.return_value = MagicMock(returncode=0, stdout=output, stderr="")
+        mock_run.side_effect = subprocess.TimeoutExpired(cmd="sc", timeout=10)
+        result = SetupWizardView._enumerate_mysql_services()
+        assert result == []
 
-        result = SetupWizardView._find_mysql_service_stopped()
-        assert result == "MySQL267"
 
-    @patch("subprocess.run")
-    def test_ignores_running_service(self, mock_run):
-        """Should return None when service is running (not stopped)."""
+class TestIsPortOpen:
+    """Tests for SetupWizardView._is_port_open (static method)."""
+
+    @patch("socket.create_connection")
+    def test_port_open(self, mock_conn):
         from src.gui.setup.setup_wizard_view import SetupWizardView
 
-        output = self._make_output([
-            ("MySQL267", "Running"),
-        ])
-        mock_run.return_value = MagicMock(returncode=0, stdout=output, stderr="")
+        mock_conn.return_value.__enter__ = MagicMock(return_value=MagicMock())
+        mock_conn.return_value.__exit__ = MagicMock(return_value=False)
 
-        result = SetupWizardView._find_mysql_service_stopped()
-        assert result is None
+        assert SetupWizardView._is_port_open("localhost", 3306) is True
 
-    @patch("subprocess.run")
-    def test_no_services(self, mock_run):
-        """Should return None when no MySQL services exist."""
+    @patch("socket.create_connection")
+    def test_port_closed(self, mock_conn):
         from src.gui.setup.setup_wizard_view import SetupWizardView
 
-        mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+        mock_conn.side_effect = OSError("Connection refused")
+        assert SetupWizardView._is_port_open("localhost", 3306) is False
 
-        result = SetupWizardView._find_mysql_service_stopped()
-        assert result is None
+    @patch("socket.create_connection")
+    def test_port_timeout(self, mock_conn):
+        import socket
+        from src.gui.setup.setup_wizard_view import SetupWizardView
+
+        mock_conn.side_effect = socket.timeout("timed out")
+        assert SetupWizardView._is_port_open("localhost", 3306) is False

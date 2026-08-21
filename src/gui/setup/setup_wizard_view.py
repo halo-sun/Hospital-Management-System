@@ -110,101 +110,66 @@ class SetupWizardView(tk.Frame):
     # ── MySQL service discovery (version-agnostic) ─────────────────
 
     @staticmethod
-    def _find_mysql_service() -> Optional[str]:
-        """Find any running MySQL/MariaDB Windows service.
+    def _enumerate_mysql_services() -> list[tuple[str, str]]:
+        """Enumerate all MySQL/MariaDB Windows services.
 
-        Returns the service display-name if a running MySQL service
-        is found, or ``None`` if none is detected.  This is
-        version-agnostic: MySQL's installer names its service after
-        the version (e.g. MySQL80, MySQL91, MySQL267), so we
-        enumerate services and match by prefix instead of hard-coding
-        a single name.
+        Uses ``sc query state= all`` (available on every Windows
+        version) instead of PowerShell's ``Get-Service`` which may
+        hang or be unavailable in PyInstaller bundles.
+
+        Returns a list of ``(service_name, state)`` tuples, e.g.
+        ``[('MySQL267', 'RUNNING')]``.  The list is empty if no
+        MySQL services are found.
         """
+        services: list[tuple[str, str]] = []
         try:
             result = subprocess.run(
-                ["powershell", "-NoProfile", "-Command",
-                 "Get-Service | Where-Object { $_.Name -match '^(MySQL|MariaDB)' }"
-                 " | Select-Object Name, Status, DisplayName | Format-List"],
-                capture_output=True, text=True, timeout=15,
+                ["sc", "query", "state=", "all"],
+                capture_output=True, text=True, timeout=10,
             )
             if result.returncode != 0:
-                logger.debug("Get-Service failed: %s", result.stderr.strip())
-                return None
+                logger.debug("sc query failed (rc=%d): %s", result.returncode, result.stderr.strip())
+                return services
 
             current_name: Optional[str] = None
-            current_status: Optional[str] = None
+            current_state: Optional[str] = None
             for line in result.stdout.splitlines():
-                line = line.strip()
-                if line.startswith("Name"):
-                    current_name = line.split(":", 1)[1].strip()
-                elif line.startswith("Status"):
-                    current_status = line.split(":", 1)[1].strip()
-                elif line.startswith("DisplayName"):
-                    # End of one service block — check if it was running
-                    if current_status and "Running" in current_status:
-                        logger.info(
-                            "Found running MySQL service: %s (%s)",
-                            current_name, line.split(":", 1)[1].strip(),
-                        )
-                        return current_name
-                    # Reset for next block
+                stripped = line.strip()
+                # SERVICE_NAME: MySQL267
+                if stripped.upper().startswith("SERVICE_NAME:"):
+                    name = stripped.split(":", 1)[1].strip()
+                    # Match MySQL* or MariaDB* (case-insensitive)
+                    if name.upper().startswith(("MYSQL", "MARIADB")):
+                        current_name = name
+                    else:
+                        current_name = None
+                # STATE              : 4  RUNNING  (note: spaces before colon)
+                elif stripped.upper().startswith("STATE") and ":" in stripped and current_name:
+                    state_part = stripped.split(":", 1)[1].strip()
+                    # Extract the text label (e.g. "4  RUNNING" → "RUNNING")
+                    parts = state_part.split(None, 1)
+                    current_state = parts[1].upper() if len(parts) > 1 else state_part.upper()
+                    services.append((current_name, current_state))
                     current_name = None
-                    current_status = None
+                    current_state = None
 
-            # Handle edge case where last block didn't have DisplayName
-            if current_name and current_status and "Running" in current_status:
-                logger.info("Found running MySQL service: %s", current_name)
-                return current_name
-
-            # No running service found — report any stopped ones
-            result2 = subprocess.run(
-                ["powershell", "-NoProfile", "-Command",
-                 "Get-Service | Where-Object { $_.Name -match '^(MySQL|MariaDB)' }"
-                 " | Select-Object Name, Status | Format-Table -AutoSize"],
-                capture_output=True, text=True, timeout=15,
-            )
-            if result2.stdout.strip():
-                logger.info(
-                    "MySQL services found but none running:\n%s",
-                    result2.stdout.strip(),
-                )
-            return None
+            logger.info("Enumerated MySQL services: %s", services)
         except (FileNotFoundError, subprocess.TimeoutExpired) as exc:
-            logger.debug("_find_mysql_service failed: %s", exc)
-            return None
+            logger.debug("_enumerate_mysql_services failed: %s", exc)
+
+        return services
 
     @staticmethod
-    def _find_mysql_service_stopped() -> Optional[str]:
-        """Find a stopped MySQL/MariaDB Windows service.
-
-        Returns the service name if a stopped MySQL service exists,
-        or ``None``.  Used to offer to start the service.
-        """
+    def _is_port_open(host: str, port: int, timeout: float = 2.0) -> bool:
+        """Check if a TCP port is accepting connections."""
+        import socket
         try:
-            result = subprocess.run(
-                ["powershell", "-NoProfile", "-Command",
-                 "Get-Service | Where-Object { $_.Name -match '^(MySQL|MariaDB)' }"
-                 " | Select-Object Name, Status | Format-List"],
-                capture_output=True, text=True, timeout=15,
-            )
-            if result.returncode != 0:
-                return None
+            with socket.create_connection((host, port), timeout=timeout):
+                return True
+        except (OSError, socket.timeout):
+            return False
 
-            current_name: Optional[str] = None
-            current_status: Optional[str] = None
-            for line in result.stdout.splitlines():
-                line = line.strip()
-                if line.startswith("Name"):
-                    current_name = line.split(":", 1)[1].strip()
-                elif line.startswith("Status"):
-                    current_status = line.split(":", 1)[1].strip()
-                    if current_name and current_status and "Stopped" in current_status:
-                        return current_name
-                    current_name = None
-                    current_status = None
-            return None
-        except (FileNotFoundError, subprocess.TimeoutExpired):
-            return None
+    # ── Step 1: Detect MySQL ──────────────────────────────────────
 
     # ── Step 1: Detect MySQL ──────────────────────────────────────
 
@@ -262,16 +227,18 @@ class SetupWizardView(tk.Frame):
         # First check if mysql binary / service exists
         if platform.system() == "Windows":
             # Version-agnostic: enumerate services matching MySQL* or MariaDB*
-            svc_name = self._find_mysql_service()
-            if svc_name is None:
-                # No running service — check for a stopped one
-                stopped = self._find_mysql_service_stopped()
-                if stopped:
-                    logger.info("MySQL service found but stopped: %s", stopped)
-                    return "stopped"
-                logger.info("No MySQL/MariaDB service detected on Windows")
-                return "not_installed"
-            logger.info("MySQL service detected: %s (running)", svc_name)
+            services = self._enumerate_mysql_services()
+            running = [name for name, state in services if state == "RUNNING"]
+            stopped = [name for name, state in services if state != "RUNNING"]
+
+            if running:
+                logger.info("MySQL service detected (running): %s", running)
+            elif stopped:
+                logger.info("MySQL service found but stopped: %s", stopped)
+                return "stopped"
+            else:
+                # No service found via sc query — fall through to port check
+                logger.info("No MySQL service found via sc query")
         else:
             # Linux: check systemctl or service
             try:
@@ -297,6 +264,21 @@ class SetupWizardView(tk.Frame):
                         return "stopped"
                 except (FileNotFoundError, subprocess.TimeoutExpired):
                     pass
+
+        # On Windows, if no running service was found, try port check as
+        # fallback — MySQL might be running under an unrecognized service name
+        # or as a manual/direct start.
+        if platform.system() == "Windows":
+            host = os.getenv("DB_HOST", "localhost")
+            port = int(os.getenv("DB_PORT", "3306"))
+            if self._is_port_open(host, port):
+                logger.info("MySQL reachable on %s:%d (port open)", host, port)
+            elif not running:
+                logger.info(
+                    "No MySQL service and port %d not open — not installed",
+                    port,
+                )
+                return "not_installed"
 
         # Try connecting with credentials from env (or empty on first run)
         user = os.getenv("DB_USER", "root")
@@ -429,30 +411,33 @@ class SetupWizardView(tk.Frame):
 
         try:
             if platform.system() == "Windows":
-                # Discover the actual MySQL service name (version-agnostic)
-                svc = self._find_mysql_service_stopped()
-                if svc:
-                    result = subprocess.run(
-                        ["powershell", "-NoProfile", "-Command",
-                         f"Start-Service -Name '{svc}'"],
-                        capture_output=True, text=True, timeout=30,
-                    )
-                    if result.returncode == 0:
-                        self._start_result_label.configure(text="\u2713 MySQL service started.", fg=_SUCCESS)
-                        self.after(1000, self._step_detect)
-                        return
-                    logger.warning("Start-Service failed for %s: %s", svc, result.stderr.strip())
+                # Find any stopped MySQL service via sc query
+                services = self._enumerate_mysql_services()
+                stopped = [name for name, state in services if state != "RUNNING"]
 
-                # Fallback: try well-known names via net start
-                for fallback in ("MySQL80", "MySQL", "mysql"):
+                started = False
+                for svc in stopped:
                     result = subprocess.run(
-                        ["net", "start", fallback],
+                        ["net", "start", svc],
                         capture_output=True, text=True, timeout=30,
                     )
                     if result.returncode == 0:
                         self._start_result_label.configure(text="\u2713 MySQL service started.", fg=_SUCCESS)
                         self.after(1000, self._step_detect)
                         return
+                    logger.warning("net start %s failed: %s", svc, result.stderr.strip())
+
+                if not started and not stopped:
+                    # No stopped service found — try well-known names as last resort
+                    for fallback in ("MySQL80", "MySQL", "mysql"):
+                        result = subprocess.run(
+                            ["net", "start", fallback],
+                            capture_output=True, text=True, timeout=30,
+                        )
+                        if result.returncode == 0:
+                            self._start_result_label.configure(text="\u2713 MySQL service started.", fg=_SUCCESS)
+                            self.after(1000, self._step_detect)
+                            return
             else:
                 result = subprocess.run(
                     ["sudo", "service", "mysql", "start"],
