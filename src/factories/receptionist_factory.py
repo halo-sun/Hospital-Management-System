@@ -22,6 +22,7 @@ from src.gui.main_window import MainWindow
 from src.gui.receptionist.dashboard_view import ReceptionistDashboard
 from src.gui.receptionist.patient_views import PatientRegistrationView, PatientSearchView
 from src.gui.receptionist.appointment_views import AppointmentBookingView, AppointmentListView
+from src.gui.common.about_view import AboutView
 
 logger = logging.getLogger(__name__)
 
@@ -69,6 +70,7 @@ class ReceptionistViewFactory:
             ("search_patient", "Search Patients"),
             ("book_appointment", "Book Appointment"),
             ("appointments", "Appointments"),
+            ("about", "About"),
         ])
 
         self._main_window.register_view(
@@ -101,6 +103,7 @@ class ReceptionistViewFactory:
                 on_refresh=lambda: self._main_window.navigate_to("appointments", force=True),
             ),
         )
+        self._main_window.register_view("about", lambda p: AboutView(p))
 
         self._main_window.navigate_to("dashboard")
 

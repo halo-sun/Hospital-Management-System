@@ -376,6 +376,7 @@ class Theme:
         "today_appointments": "📋",
         "my_schedule": "🗓️",
         "clinical_records": "🏥",
+        "about": "ℹ️",
     }
 
     @classmethod

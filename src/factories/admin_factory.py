@@ -35,6 +35,7 @@ from src.gui.admin.audit_log_view import AuditLogView
 from src.gui.admin.reports_view import ReportsView
 from src.gui.admin.settings_view import SettingsView
 from src.gui.receptionist.appointment_views import AppointmentListView
+from src.gui.common.about_view import AboutView
 from src.services.user_service import UserService
 from src.services.staff_service import StaffService
 
@@ -94,6 +95,7 @@ class AdminViewFactory:
             ("reports", "Reports"),
             ("audit_logs", "Audit Logs"),
             ("settings", "Settings"),
+            ("about", "About"),
         ])
 
         self._main_window.register_view(
@@ -109,6 +111,7 @@ class AdminViewFactory:
         self._main_window.register_view("reports", self._create_reports_view)
         self._main_window.register_view("audit_logs", self._create_audit_log_view)
         self._main_window.register_view("settings", self._create_settings_view)
+        self._main_window.register_view("about", lambda p: AboutView(p))
 
         self._main_window.navigate_to("dashboard")
 

@@ -30,6 +30,7 @@ from src.gui.doctor.clinical_views import (
     PrescriptionFormDialog,
     PatientTimelineView,
 )
+from src.gui.common.about_view import AboutView
 
 logger = logging.getLogger(__name__)
 
@@ -84,6 +85,7 @@ class DoctorViewFactory:
             ("today_appointments", "Today's Appointments"),
             ("my_schedule", "My Schedule"),
             ("clinical_records", "Clinical Records"),
+            ("about", "About"),
         ])
 
         self._main_window.register_view(
@@ -105,6 +107,7 @@ class DoctorViewFactory:
             "clinical_records",
             lambda p: self._create_clinical_records_view(p),
         )
+        self._main_window.register_view("about", lambda p: AboutView(p))
 
         self._main_window.navigate_to("dashboard")
 
