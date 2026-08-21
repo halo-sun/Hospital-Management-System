@@ -294,10 +294,13 @@ jobs:
           if-no-files-found: error
 
       # ── 12. Create GitHub Release (on tag pushes only) ──────────
+      #    Explicitly pin tag_name so re-running a build against the same
+      #    tag updates that ONE release instead of creating duplicates.
       - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ github.ref_name }}
           files: dist/HospitalScheduler-${{ env.BUILD_VERSION }}-Setup.exe
           generate_release_notes: true
 

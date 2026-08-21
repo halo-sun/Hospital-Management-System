@@ -78,8 +78,10 @@ the database manually:
 ### 1. Ensure MySQL is running
 
 ```bash
-# Windows (from an elevated command prompt):
+# Windows (from an elevated command prompt — replace mysql80 with your version):
 net start mysql80
+# Or for other versions: net start MySQL91, net start MySQL267, etc.
+# You can find your service name with: sc query state= all | findstr MySQL
 
 # Linux:
 sudo service mysql start
