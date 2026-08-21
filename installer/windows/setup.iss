@@ -20,12 +20,12 @@
 #define AppExeName      "HospitalScheduler.exe"
 #define SetupExeName    "HMS-Setup.exe"
 #define AppDirName      "HospitalScheduler"
-#define IconFile        "..\\..\\assets\\icon.ico"
-#define LicenseFile     "..\\..\\LICENSE"
+#define IconFile        "..\..\assets\icon.ico"
+#define LicenseFile     "..\..\LICENSE"
 
 ; PyInstaller output directories (relative to project root)
-#define MainDistDir     "..\\..\\dist\\HospitalScheduler"
-#define SetupDistDir    "..\\..\\dist\\HMS-Setup"
+#define MainDistDir     "..\..\dist\HospitalScheduler"
+#define SetupDistDir    "..\..\dist\HMS-Setup"
 
 [Setup]
 ; ── Identification ───────────────────────────────────────────────────────
@@ -39,13 +39,13 @@ AppSupportURL=https://github.com/halo-sun/Hospital-Management-System/issues
 AppUpdatesURL=https://github.com/halo-sun/Hospital-Management-System/releases
 
 ; ── Installation ─────────────────────────────────────────────────────────
-DefaultDirName={autopf}\\{#AppDirName}
+DefaultDirName={autopf}\{#AppDirName}
 DefaultGroupName={#AppName}
 PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=dialog
 
 ; ── Output ───────────────────────────────────────────────────────────────
-OutputDir=..\\..\\dist
+OutputDir=..\..\dist
 OutputBaseFilename=HospitalScheduler-{#AppVersion}-Setup
 Compression=lzma2
 SolidCompression=yes
@@ -54,7 +54,7 @@ LZMANumBlockThreads=4
 ; ── Visual ───────────────────────────────────────────────────────────────
 WizardStyle=modern
 SetupIconFile={#IconFile}
-UninstallDisplayIcon={app}\\{#AppExeName}
+UninstallDisplayIcon={app}\{#AppExeName}
 WizardImageFile=
 WizardSmallImageFile=
 
@@ -74,40 +74,40 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 
 [Files]
 ; ── Main application ─────────────────────────────────────────────────────
-Source: "{#MainDistDir}\\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#MainDistDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 ; ── Setup utility ────────────────────────────────────────────────────────
-Source: "{#SetupDistDir}\\*"; DestDir: "{app}\\setup"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#SetupDistDir}\*"; DestDir: "{app}\setup"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
 ; ── Start Menu ───────────────────────────────────────────────────────────
-Name: "{group}\\{#AppName}"; Filename: "{app}\\{#AppExeName}"; Comment: "Launch Hospital Management System"
-Name: "{group}\\Database Setup"; Filename: "{app}\\setup\\{#SetupExeName}"; Comment: "Run database setup wizard"
-Name: "{group}\\{cm:UninstallProgram,{#AppName}}"; Filename: "{uninstallexe}"
+Name: "{group}\{#AppName}"; Filename: "{app}\{#AppExeName}"; Comment: "Launch Hospital Management System"
+Name: "{group}\Database Setup"; Filename: "{app}\setup\{#SetupExeName}"; Comment: "Run database setup wizard"
+Name: "{group}\{cm:UninstallProgram,{#AppName}}"; Filename: "{uninstallexe}"
 
 ; ── Desktop (optional) ──────────────────────────────────────────────────
-Name: "{autodesktop}\\{#AppName}"; Filename: "{app}\\{#AppExeName}"; Tasks: desktopicon
+Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExeName}"; Tasks: desktopicon
 
 [Run]
 ; ── Launch HMS-Setup.exe after installation ──────────────────────────────
-Filename: "{app}\\setup\\{#SetupExeName}"; \\
-    Description: "Set up the database now (recommended)"; \\
+Filename: "{app}\setup\{#SetupExeName}"; \
+    Description: "Set up the database now (recommended)"; \
     Flags: postinstall skipifsilent nowait
 
 ; ── Optionally launch the main app ──────────────────────────────────────
-Filename: "{app}\\{#AppExeName}"; \\
-    Description: "Launch {#AppName}"; \\
+Filename: "{app}\{#AppExeName}"; \
+    Description: "Launch {#AppName}"; \
     Flags: postinstall skipifsilent nowait unchecked
 
 [UninstallDelete]
 ; Remove logs created by the application (but NOT user data by default)
-Type: filesandordirs; Name: "{app}\\logs"
-Type: filesandordirs; Name: "{app}\\reports"
-Type: filesandordirs; Name: "{app}\\exports"
+Type: filesandordirs; Name: "{app}\logs"
+Type: filesandordirs; Name: "{app}\reports"
+Type: filesandordirs; Name: "{app}\exports"
 
 [Code]
 // ── Uninstall: ask about removing user data ────────────────────────────
-// The %LOCALAPPDATA%\\HospitalScheduler directory contains uploaded
+// The %LOCALAPPDATA%\HospitalScheduler directory contains uploaded
 // patient documents, logs, and reports.  Deleting this without very
 // explicit confirmation would be a data-loss risk, so we default to
 // LEAVING it in place and only offer removal if the user confirms.
@@ -120,7 +120,7 @@ begin
     if CurUninstallStep = usPostUninstall then
     begin
         // Build the user data path (same logic as the app's _user_data_dir)
-        AppDataDir := ExpandConstant('{localappdata}\\HospitalScheduler');
+        AppDataDir := ExpandConstant('{localappdata}\HospitalScheduler');
 
         if DirExists(AppDataDir) then
         begin
