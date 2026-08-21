@@ -75,9 +75,9 @@ AppName={{#AppName}}
 AppVersion={{#AppVersion}}
 AppPublisher={{#AppPublisher}}
 AppCopyright={{#AppCopyright}}
-AppPublisherURL=https://github.com/your-username/HospitalSchedulingSystem
-AppSupportURL=https://github.com/your-username/HospitalSchedulingSystem/issues
-AppUpdatesURL=https://github.com/your-username/HospitalSchedulingSystem/releases
+AppPublisherURL=https://github.com/halo-sun/Hospital-Management-System
+AppSupportURL=https://github.com/halo-sun/Hospital-Management-System/issues
+AppUpdatesURL=https://github.com/halo-sun/Hospital-Management-System/releases
 
 ; ── Installation ─────────────────────────────────────────────────────────
 DefaultDirName={{autopf}}\\{{#AppDirName}}

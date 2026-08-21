@@ -151,7 +151,7 @@ class AppConfig:
 
     # ── Identity ───────────────────────────────────────────────
     NAME: ClassVar[str] = "Hospital Management System"
-    VERSION: ClassVar[str] = "1.0.3"
+    VERSION: ClassVar[str] = "1.0.4"
     PUBLISHER: ClassVar[str] = "Sidd & Contributors"
     APP_DESCRIPTION: ClassVar[str] = (
         "A desktop hospital management system for scheduling, "
