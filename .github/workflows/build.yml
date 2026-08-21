@@ -52,7 +52,7 @@ on:
   workflow_dispatch:   # manual trigger from Actions tab
 
 env:
-  PYTHON_VERSION: '3.12'
+  PYTHON_VERSION: '3.12.7'
 
 jobs:
   build:
@@ -68,11 +68,43 @@ jobs:
         uses: actions/checkout@v4
 
       # ── 2. Python setup ───────────────────────────────────────
+      #    Pin an exact patch version and disable pip cache —
+      #    cached/restored Python installs on Windows runners can
+      #    corrupt the bundled tcl8.6 data directory, which breaks
+      #    tkinter and silently mis-bundles into the PyInstaller exe.
       - name: Set up Python ${{ env.PYTHON_VERSION }}
         uses: actions/setup-python@v5
         with:
-          python-version: ${{ env.PYTHON_VERSION }}
-          cache: 'pip'
+          python-version: '3.12.7'
+
+      # ── 2b. Verify Tcl/Tk before anything else ────────────────
+      #    If this is broken, PyInstaller will bundle a broken Tk
+      #    runtime — fail immediately so we never build on top of
+      #    a corrupt environment.
+      - name: Verify Tcl/Tk works before proceeding
+        run: |
+          python -c "import tkinter; r = tkinter.Tk(); r.destroy(); print('Tk OK')"
+          # Also verify tcl data directory is present and non-empty
+          python -c "
+          import tkinter, os, sys
+          tk = tkinter.Tk()
+          tcl_dir = os.path.join(os.path.dirname(sys.executable), 'tcl')
+          if not os.path.isdir(tcl_dir):
+              # Check the Tcl lib path reported by the interpreter
+              tcl_dir = os.path.join(os.path.dirname(sys.executable), 'tcl8.6')
+          if os.path.isdir(tcl_dir):
+              count = sum(len(files) for _, _, files in os.walk(tcl_dir))
+              print(f'tcl directory found at {tcl_dir}: {count} files')
+              if count == 0:
+                  print('ERROR: tcl directory is empty')
+                  sys.exit(1)
+          else:
+              print('WARNING: tcl directory not found at expected paths, checking Tk version info')
+              patchlevel = tk.tk.call('info', 'patchlevel')
+              print(f'Tk version: {patchlevel}')
+          tk.destroy()
+          "
+        shell: pwsh
 
       # ── 3. Install dependencies ───────────────────────────────
       #    Runtime deps are what get bundled into the exe.
