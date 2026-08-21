@@ -242,51 +242,6 @@ class DoctorService:
         """
         return self._doctor_repo.search_doctors(search_term)
 
-    def filter_doctors(
-        self,
-        search_term: Optional[str] = None,
-        department_id: Optional[int] = None,
-        specialization: Optional[str] = None,
-        status: Optional[str] = None,
-    ) -> List[Dict[str, Any]]:
-        """Filter doctors by multiple criteria.
-
-        Args:
-            search_term: Optional text search (name/specialization/email).
-            department_id: Optional department ID filter.
-            specialization: Optional specialization filter.
-            status: Optional status filter (Active/Inactive/On Leave).
-
-        Returns:
-            Filtered list of doctor records with department info.
-        """
-        results = self._doctor_repo.find_all_with_department()
-
-        if department_id:
-            results = [d for d in results if d.get("department_id") == department_id]
-
-        if specialization:
-            spec_lower = specialization.lower()
-            results = [
-                d for d in results
-                if d.get("specialization") and spec_lower in d["specialization"].lower()
-            ]
-
-        if status:
-            results = [d for d in results if d.get("status", "").lower() == status.lower()]
-
-        if search_term:
-            term_lower = search_term.lower()
-            results = [
-                d for d in results
-                if term_lower in d.get("full_name", "").lower()
-                or term_lower in d.get("specialization", "").lower()
-                or term_lower in d.get("email", "").lower()
-                or term_lower in (d.get("contact_number") or "")
-            ]
-
-        return results
-
     def get_all_specializations(self) -> List[str]:
         """Get list of unique specializations from all doctors.
 

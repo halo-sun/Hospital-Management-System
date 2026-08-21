@@ -46,6 +46,32 @@ class DocumentController:
             return None
         return self._auth_ctrl.current_role
 
+    def _get_current_doctor_id(self) -> Optional[int]:
+        """Return the doctor_id linked to the current user, or None."""
+        if self._auth_ctrl is None or self._auth_ctrl.current_user is None:
+            return None
+        user_id = self._auth_ctrl.current_user_id
+        if user_id is None:
+            return None
+        from src.repositories.doctor_repository import DoctorRepository
+        repo = DoctorRepository()
+        doctor = repo.find_by_user_id(user_id)
+        return doctor.get("doctor_id") if doctor else None
+
+    def _has_treated_patient(self, patient_id: str) -> bool:
+        """Check whether the current doctor has any visit record for the patient.
+
+        Returns:
+            True if at least one visit exists linking this doctor to the patient.
+        """
+        doctor_id = self._get_current_doctor_id()
+        if doctor_id is None:
+            return False
+        from src.services.clinical_service import ClinicalService
+        clinical = ClinicalService()
+        visits = clinical.get_doctor_visits(doctor_id)
+        return any(v.get("patient_id") == patient_id for v in visits)
+
     # ── Upload ─────────────────────────────────────────────────
 
     @require_role(Role.DOCTOR)
@@ -68,6 +94,9 @@ class DocumentController:
         valid, msg = validate_patient_id(patient_id)
         if not valid:
             return False, msg, None
+
+        if not self._has_treated_patient(patient_id):
+            return False, "Access denied: you can only manage documents for patients you have treated.", None
 
         success, message, document_id = self._service.upload_document(
             patient_id, file_path, uploaded_by=user_id,
@@ -100,6 +129,8 @@ class DocumentController:
         Returns:
             List of document records.
         """
+        if not self._has_treated_patient(patient_id):
+            return []
         return self._service.list_documents(patient_id)
 
     @require_role(Role.DOCTOR)

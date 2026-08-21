@@ -379,6 +379,16 @@ class AuthService:
         self._current_user = None
         self._session_start = None
 
+    def refresh_session(self) -> None:
+        """Reset the session start time to now, extending the timeout.
+
+        Call this on any user activity (navigation, button click, etc.)
+        so the session does not expire while the user is actively
+        interacting with the application.
+        """
+        if self._session_start is not None:
+            self._session_start = datetime.now()
+
     @staticmethod
     def _hash_password(password: str) -> str:
         """Hash a password using bcrypt.

@@ -269,32 +269,6 @@ class DoctorController:
         """
         return self._doctor_service.search_doctors(search_term)
 
-    @require_role(Role.ADMIN)
-    def filter_doctors(
-        self,
-        search_term: Optional[str] = None,
-        department_id: Optional[int] = None,
-        specialization: Optional[str] = None,
-        status: Optional[str] = None,
-    ) -> List[Dict[str, Any]]:
-        """Filter doctors by multiple criteria.
-
-        Args:
-            search_term: Optional text search.
-            department_id: Optional department ID.
-            specialization: Optional specialization filter.
-            status: Optional status filter.
-
-        Returns:
-            Filtered list of doctor records.
-        """
-        return self._doctor_service.filter_doctors(
-            search_term=search_term,
-            department_id=department_id,
-            specialization=specialization,
-            status=status,
-        )
-
     @require_role(Role.ADMIN, Role.RECEPTIONIST)
     def get_all_specializations(self) -> List[str]:
         """Get all unique specializations.

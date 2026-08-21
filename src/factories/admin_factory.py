@@ -382,16 +382,8 @@ class AdminViewFactory:
             else:
                 self._main_window.navigate_to("manage_doctors", force=True)
 
-        def _apply_view_filters() -> None:
-            """Re-apply filters on the live view (no re-query)."""
-            view = self._main_window.get_current_content()
-            if hasattr(view, "_apply_filters"):
-                view._apply_filters()
-
         return DoctorManagementView(
             parent, doctors, departments, specializations=specializations,
-            on_search=lambda term: _apply_view_filters(),
-            on_filter=lambda dept_id, spec, status: _apply_view_filters(),
             on_add=lambda: self._show_add_doctor_form(parent),
             on_edit=lambda did: self._show_edit_doctor_form(did, parent),
             on_delete=lambda did: self._handle_delete_doctor(did),

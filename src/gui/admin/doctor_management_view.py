@@ -20,8 +20,6 @@ class DoctorManagementView(BaseView):
         doctors: List[Dict[str, Any]],
         departments: List[Dict[str, Any]],
         specializations: Optional[List[str]] = None,
-        on_search: Optional[Callable] = None,
-        on_filter: Optional[Callable] = None,
         on_add: Optional[Callable] = None,
         on_edit: Optional[Callable[[int], None]] = None,
         on_delete: Optional[Callable[[int], None]] = None,
@@ -40,8 +38,6 @@ class DoctorManagementView(BaseView):
             doctors: List of doctor dicts (full unfiltered list).
             departments: List of department dicts.
             specializations: Optional list of all known specializations.
-            on_search: Callback(search_term) for text search.
-            on_filter: Callback(department_id, specialization, status) for filtering.
             on_add: Callback to add a doctor.
             on_edit: Callback to edit a doctor.
             on_delete: Callback to delete a doctor.
@@ -55,8 +51,6 @@ class DoctorManagementView(BaseView):
         self._all_doctors = list(doctors)
         self._departments = departments
         self._specializations = specializations or []
-        self._on_search = on_search
-        self._on_filter = on_filter
         self._on_add = on_add
         self._on_edit = on_edit
         self._on_delete = on_delete
@@ -247,10 +241,8 @@ class DoctorManagementView(BaseView):
     # ── Internal handlers ─────────────────────────────────────
 
     def _do_search(self) -> None:
-        """Execute the search callback."""
-        if self._on_search:
-            term = self._search_var.get().strip()
-            self._on_search(term)
+        """Execute the search via client-side filtering."""
+        self._apply_filters()
 
     def _apply_filters(self) -> None:
         """Apply all active filters client-side and repopulate the tree.

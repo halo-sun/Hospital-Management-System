@@ -499,6 +499,7 @@ class Application:
         self._main_window = MainWindow(
             on_logout=self._handle_logout,
             on_session_expired=self._handle_session_expired,
+            on_activity=self._auth_ctrl.refresh_session,
         )
         self._main_window.set_user(user)
 

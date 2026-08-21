@@ -95,11 +95,11 @@ class SchedulingEngine:
             2. Date is not a hospital holiday
             3. Doctor is not on leave for the date
             4. Day-of-week is in the doctor's weekly schedule
-            5. Slot falls within the doctor's working hours
-            6. Slot does not overlap with lunch break
-            7. Slot does not overlap with existing bookings
-            8. Daily appointment limit not exceeded
-            9. Date is not in the past
+               - Slot falls within the doctor's working hours
+               - Slot does not overlap with lunch break
+            5. Slot does not overlap with existing bookings
+            6. Daily appointment limit not exceeded
+            7. Date is not in the past
 
         Args:
             doctor_id: The doctor to check.

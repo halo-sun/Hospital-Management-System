@@ -54,6 +54,31 @@ class ClinicalController:
             return None
         return self._auth_ctrl.current_role
 
+    def _get_current_doctor_id(self) -> Optional[int]:
+        """Return the doctor_id linked to the current user, or None."""
+        if self._auth_ctrl is None or self._auth_ctrl.current_user is None:
+            return None
+        user_id = self._auth_ctrl.current_user_id
+        if user_id is None:
+            return None
+        from src.repositories.doctor_repository import DoctorRepository
+        repo = DoctorRepository()
+        doctor = repo.find_by_user_id(user_id)
+        return doctor.get("doctor_id") if doctor else None
+
+    def _check_doctor_ownership(self, doctor_id: int) -> Tuple[bool, str]:
+        """Verify the requesting doctor owns the given doctor_id.
+
+        Returns:
+            (True, "") on success, (False, error_message) on failure.
+        """
+        current_doc_id = self._get_current_doctor_id()
+        if current_doc_id is None:
+            return False, "Doctor record not found for current user."
+        if current_doc_id != doctor_id:
+            return False, "Access denied: you can only view your own records."
+        return True, ""
+
     # ── Visit Records ──────────────────────────────────────────
 
     @require_role(Role.DOCTOR)
@@ -191,6 +216,9 @@ class ClinicalController:
         Returns:
             List of visit records.
         """
+        owned, msg = self._check_doctor_ownership(doctor_id)
+        if not owned:
+            return []
         return self._clinical_service.get_doctor_visits(
             doctor_id, start_date, end_date,
         )
@@ -208,6 +236,9 @@ class ClinicalController:
         Returns:
             List of matching visit records.
         """
+        owned, msg = self._check_doctor_ownership(doctor_id)
+        if not owned:
+            return []
         valid, _ = validate_search(search_term)
         if not valid:
             return []

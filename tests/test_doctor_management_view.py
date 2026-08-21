@@ -224,18 +224,11 @@ class TestDoctorManagementViewConstruction:
         root = tk.Tk()
         root.withdraw()
         try:
-            search_called = []
-            filter_called = []
-
             view = DoctorManagementView(
                 root,
                 doctors=sample_doctors,
                 departments=sample_departments,
                 specializations=sample_specializations,
-                on_search=lambda term: search_called.append(term),
-                on_filter=lambda dept_id, spec, status: filter_called.append(
-                    (dept_id, spec, status)
-                ),
                 on_add=lambda: None,
                 on_edit=lambda did: None,
                 on_delete=lambda did: None,

@@ -203,43 +203,6 @@ class TestDoctorOperations:
         result = service.search_doctors("Smith")
         assert len(result) == 1
 
-    def test_filter_doctors_by_department(self, service: DoctorService, repo: MagicMock) -> None:
-        """filter_doctors by department_id."""
-        repo.find_all_with_department.return_value = [
-            make_doctor(doctor_id=1, department_id=1),
-            make_doctor(doctor_id=2, department_id=2),
-        ]
-        results = service.filter_doctors(department_id=1)
-        assert len(results) == 1
-        assert results[0]["doctor_id"] == 1
-
-    def test_filter_doctors_by_specialization(self, service: DoctorService, repo: MagicMock) -> None:
-        """filter_doctors by specialization."""
-        repo.find_all_with_department.return_value = [
-            make_doctor(doctor_id=1, specialization="Cardiology"),
-            make_doctor(doctor_id=2, specialization="Neurology"),
-        ]
-        results = service.filter_doctors(specialization="Cardiology")
-        assert len(results) == 1
-
-    def test_filter_doctors_by_status(self, service: DoctorService, repo: MagicMock) -> None:
-        """filter_doctors by status."""
-        repo.find_all_with_department.return_value = [
-            make_doctor(doctor_id=1, status="Active"),
-            make_doctor(doctor_id=2, status="On Leave"),
-        ]
-        results = service.filter_doctors(status="On Leave")
-        assert len(results) == 1
-
-    def test_filter_doctors_by_search_term(self, service: DoctorService, repo: MagicMock) -> None:
-        """filter_doctors by search term (name match)."""
-        repo.find_all_with_department.return_value = [
-            make_doctor(doctor_id=1, full_name="Dr. Smith"),
-            make_doctor(doctor_id=2, full_name="Dr. Jones"),
-        ]
-        results = service.filter_doctors(search_term="Smith")
-        assert len(results) == 1
-
     def test_get_all_specializations(self, service: DoctorService, repo: MagicMock) -> None:
         """get_all_specializations returns unique sorted list."""
         repo.find_all_with_department.return_value = [

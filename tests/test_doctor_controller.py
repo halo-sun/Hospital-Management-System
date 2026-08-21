@@ -268,12 +268,6 @@ class TestDoctorOperations:
         result = controller.search_doctors("Smith")
         assert len(result) == 1
 
-    def test_filter_doctors(self, controller: DoctorController, mock_doctor_service: MagicMock) -> None:
-        """filter_doctors delegates to service."""
-        mock_doctor_service.filter_doctors.return_value = [{"doctor_id": 1}]
-        result = controller.filter_doctors(department_id=1, specialization="Cardiology", status="Active")
-        assert len(result) == 1
-
     def test_get_all_specializations(self, controller: DoctorController, mock_doctor_service: MagicMock) -> None:
         """get_all_specializations delegates to service."""
         mock_doctor_service.get_all_specializations.return_value = ["Cardiology", "Neurology"]

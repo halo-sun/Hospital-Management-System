@@ -156,6 +156,15 @@ class AuthController:
         """
         return self._auth_service.is_session_expired()
 
+    def refresh_session(self) -> None:
+        """Reset the session timeout clock on user activity.
+
+        Should be called whenever the user performs an action
+        (navigation, button click) so the session does not expire
+        during active use.
+        """
+        self._auth_service.refresh_session()
+
     def change_password(
         self, current_password: str, new_password: str, confirm_password: str
     ) -> Tuple[bool, str]:

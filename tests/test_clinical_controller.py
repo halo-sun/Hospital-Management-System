@@ -45,6 +45,8 @@ def mock_auth_ctrl() -> MagicMock:
     """Create a mocked AuthController with a Doctor session."""
     auth = MagicMock()
     auth.current_role = "Doctor"
+    auth.current_user = {"user_id": 1, "role_name": "Doctor"}
+    auth.current_user_id = 1
     return auth
 
 
@@ -54,9 +56,14 @@ def controller(mock_auth_ctrl: MagicMock) -> ClinicalController:
     with (
         patch("src.controllers.clinical_controller.ClinicalService") as cs_cls,
         patch("src.controllers.clinical_controller.AuditService") as as_cls,
+        patch("src.repositories.doctor_repository.DoctorRepository") as doc_repo_cls,
     ):
         cs_cls.return_value = MagicMock()
         as_cls.return_value = MagicMock()
+        # Mock the doctor repository so _get_current_doctor_id returns doctor_id=1
+        mock_repo = MagicMock()
+        mock_repo.find_by_user_id.return_value = {"doctor_id": 1}
+        doc_repo_cls.return_value = mock_repo
         ctrl = ClinicalController(auth_ctrl=mock_auth_ctrl)
         ctrl._clinical_service = cs_cls.return_value
         ctrl._audit_service = as_cls.return_value

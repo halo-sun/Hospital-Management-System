@@ -32,6 +32,7 @@ class MainWindow:
         self,
         on_logout: Optional[Callable] = None,
         on_session_expired: Optional[Callable] = None,
+        on_activity: Optional[Callable] = None,
     ) -> None:
         """Initialise the main window.
 
@@ -40,9 +41,12 @@ class MainWindow:
             on_session_expired: Optional callback invoked on the clock
                 ticker; should return True (and handle logout) when the
                 inactivity session timeout has elapsed.
+            on_activity: Optional callback invoked on user navigation
+                to refresh the session timeout.
         """
         self._on_logout = on_logout
         self._on_session_expired = on_session_expired
+        self._on_activity = on_activity
         self._root = tk.Tk()
         self._root.title(f"{app_config.name} v{app_config.version}")
         self._root.geometry(f"{app_config.window_width}x{app_config.window_height}")
@@ -333,6 +337,10 @@ class MainWindow:
             force: If True, re-create the view even when it matches
                    the current view (used by refresh button / F5).
         """
+        # Refresh the session timeout on any navigation activity
+        if self._on_activity:
+            self._on_activity()
+
         if key == self._current_key and not force:
             return
 

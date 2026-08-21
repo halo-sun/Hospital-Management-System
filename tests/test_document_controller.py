@@ -25,13 +25,30 @@ class FakeAuth:
 
     def __init__(self, role: Optional[str] = None) -> None:
         self.current_role = role
+        self.current_user = {"user_id": 1, "role_name": role} if role else None
+        self.current_user_id = 1 if role else None
 
 
 @pytest.fixture
 def doctor_controller() -> DocumentController:
     """A DocumentController with a doctor session and mocked service/audit."""
-    with patch("src.controllers.document_controller.AuditService") as audit_cls:
+    with (
+        patch("src.controllers.document_controller.AuditService") as audit_cls,
+        patch("src.repositories.doctor_repository.DoctorRepository") as doc_repo_cls,
+        patch("src.services.clinical_service.ClinicalService") as clinical_cls,
+    ):
         audit_cls.return_value = MagicMock()
+        mock_repo = MagicMock()
+        mock_repo.find_by_user_id.return_value = {"doctor_id": 1}
+        doc_repo_cls.return_value = mock_repo
+        # Mock clinical service so _has_treated_patient returns True
+        mock_clinical = MagicMock()
+        mock_clinical.get_doctor_visits.return_value = [
+            {"patient_id": "PAT-00001"},
+            {"patient_id": "PAT-00002"},
+            {"patient_id": "PAT-1"},
+        ]
+        clinical_cls.return_value = mock_clinical
         ctrl = DocumentController(
             auth_ctrl=FakeAuth(Role.DOCTOR), service=MagicMock(),
         )
