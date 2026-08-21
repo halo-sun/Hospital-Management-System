@@ -76,16 +76,17 @@ class UserRepository(BaseRepository):
         query += " ORDER BY u.created_at DESC"
         return DatabaseConnection.execute_query(query, tuple(params)) or []
 
-    def create_user(self, user_data: Dict[str, Any]) -> int:
+    def create_user(self, user_data: Dict[str, Any], conn=None) -> int:
         """Insert a new user record.
 
         Args:
             user_data: Dictionary of user fields.
+            conn: Optional transactional connection.
 
         Returns:
             The new user's ID.
         """
-        return self.insert(user_data)
+        return self.insert(user_data, conn=conn)
 
     def update_user(self, user_id: int, user_data: Dict[str, Any]) -> int:
         """Update an existing user record.

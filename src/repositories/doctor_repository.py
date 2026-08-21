@@ -94,16 +94,17 @@ class DoctorRepository(BaseRepository):
             order_by="full_name ASC",
         )
 
-    def create_doctor(self, data: Dict[str, Any]) -> int:
+    def create_doctor(self, data: Dict[str, Any], conn=None) -> int:
         """Insert a new doctor record.
 
         Args:
             data: Dictionary of doctor fields.
+            conn: Optional transactional connection.
 
         Returns:
             The new doctor's ID.
         """
-        return self.insert(data)
+        return self.insert(data, conn=conn)
 
     def update_doctor(self, doctor_id: int, data: Dict[str, Any]) -> int:
         """Update an existing doctor record.

@@ -47,6 +47,7 @@ class MainWindow:
         self._on_logout = on_logout
         self._on_session_expired = on_session_expired
         self._on_activity = on_activity
+        self._clock_job_id: Optional[str] = None
         self._root = tk.Tk()
         self._root.title(f"{app_config.name} v{app_config.version}")
         self._root.geometry(f"{app_config.window_width}x{app_config.window_height}")
@@ -152,7 +153,7 @@ class MainWindow:
         self._status_clock.configure(text=now)
         if self._on_session_expired and self._on_session_expired():
             return
-        self._root.after(30000, self._update_clock)
+        self._clock_job_id = self._root.after(30000, self._update_clock)
 
     def set_status(self, message: str) -> None:
         """Set the status bar message text.
@@ -308,6 +309,14 @@ class MainWindow:
 
     def close(self) -> None:
         """Close the main window."""
+        # Cancel the clock ticker before destroying the window to
+        # prevent "invalid command name" errors from stray callbacks.
+        if self._clock_job_id is not None:
+            try:
+                self._root.after_cancel(self._clock_job_id)
+            except tk.TclError:
+                pass  # job may already have fired
+            self._clock_job_id = None
         self._root.quit()
         self._root.destroy()
 

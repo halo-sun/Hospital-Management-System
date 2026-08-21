@@ -412,6 +412,35 @@ def initialize_database() -> bool:
             conn.close()
             return False
 
+        # Verify critical columns exist.  IF NOT EXISTS only creates
+        # tables that are missing entirely — it does NOT add new columns
+        # to a table that already exists.  Check a handful of critical
+        # columns so missing-column errors are caught at startup, not at
+        # first use.
+        critical_columns = {
+            "doctors": ["working_hours_start", "working_hours_end"],
+        }
+        missing_columns: list[str] = []
+        for table, cols in critical_columns.items():
+            if table not in existing_tables:
+                continue
+            cursor.execute(
+                "SELECT COLUMN_NAME FROM information_schema.COLUMNS "
+                "WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s",
+                (db_config.database, table),
+            )
+            existing = {row[0] for row in cursor.fetchall()}
+            for col in cols:
+                if col not in existing:
+                    missing_columns.append(f"{table}.{col}")
+        if missing_columns:
+            logger.warning(
+                "Schema drift detected — columns missing: %s. "
+                "Run database/migrations/005_doctor_working_hours.sql "
+                "to fix.",
+                ", ".join(missing_columns),
+            )
+
         conn.commit()
         cursor.close()
         conn.close()

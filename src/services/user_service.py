@@ -44,12 +44,13 @@ class UserService:
 
     # ── User CRUD ──────────────────────────────────────────────
 
-    def create_user(self, user_data: Dict[str, Any]) -> Tuple[bool, str, Optional[int]]:
+    def create_user(self, user_data: Dict[str, Any], conn=None) -> Tuple[bool, str, Optional[int]]:
         """Create a new user account after validating inputs.
 
         Args:
             user_data: Dictionary with ``username``, ``password``,
                        ``role_id``, and optional ``email`` / ``full_name``.
+            conn: Optional transactional connection for atomic operations.
 
         Returns:
             Tuple of (success, message, new_user_id_or_None).
@@ -78,7 +79,7 @@ class UserService:
             bcrypt.gensalt(app_config.bcrypt_rounds),
         ).decode("utf-8")
 
-        user_id = self._user_repo.create_user(user_data)
+        user_id = self._user_repo.create_user(user_data, conn=conn)
         logger.info("User created: %s (id=%d)", user_data.get("username"), user_id)
         return True, "User created successfully.", user_id
 

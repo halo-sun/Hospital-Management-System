@@ -9,6 +9,7 @@ from src.repositories.doctor_repository import (
     DoctorLeaveRepository,
 )
 from src.services.user_service import UserService
+from src.database.connection import DatabaseConnection
 from src.config import app_config
 from src.constants import Role
 
@@ -165,6 +166,11 @@ class DoctorService:
     ) -> Tuple[bool, str, Optional[int]]:
         """Create a new doctor, optionally creating a linked user account.
 
+        When ``user_data`` is provided, both the user account and the
+        doctor record are created inside a single database transaction
+        so a failure on the second insert rolls back the first — no
+        orphaned login accounts are left behind.
+
         Args:
             doctor_data: Dictionary of doctor fields.
             user_data: Optional dictionary with username/password for the user.
@@ -184,13 +190,32 @@ class DoctorService:
                 return False, "Doctor role not found in system.", None
             user_data["role_id"] = role_id
             user_data["password"] = pw
-            success, msg, user_id = self._user_service.create_user(user_data)
-            if not success:
-                return False, msg, None
-            doctor_data["user_id"] = user_id
 
+            # Atomic: user + doctor in one transaction
+            try:
+                with DatabaseConnection.transaction() as conn:
+                    success, msg, user_id = self._user_service.create_user(
+                        user_data, conn=conn,
+                    )
+                    if not success:
+                        # Validation error — transaction will roll back
+                        raise ValueError(msg)
+                    doctor_data["user_id"] = user_id
+                    doctor_id = self._doctor_repo.create_doctor(
+                        doctor_data, conn=conn,
+                    )
+            except ValueError as e:
+                return False, str(e), None
+            except Exception:
+                logger.exception("Doctor creation failed — full rollback")
+                return False, "Doctor creation failed due to a system error.", None
+
+            logger.info("Doctor created: %s (id=%d)", doctor_data["full_name"], doctor_id)
+            return True, "Doctor created successfully.", doctor_id
+
+        # No user account — just create the doctor record
         doctor_id = self._doctor_repo.create_doctor(doctor_data)
-        logger.info(f"Doctor created: {doctor_data['full_name']} (id={doctor_id})")
+        logger.info("Doctor created: %s (id=%d)", doctor_data["full_name"], doctor_id)
         return True, "Doctor created successfully.", doctor_id
 
     def update_doctor(
