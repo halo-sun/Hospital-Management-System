@@ -20,18 +20,27 @@ from src.services.doctor_service import DoctorService
 @pytest.fixture
 def service() -> DoctorService:
     """Create a DoctorService with all repositories mocked."""
+    # Mock the transaction context manager so create_doctor (with user_data)
+    # never opens a real MySQL connection.
+    mock_conn = MagicMock()
+    mock_transaction_ctx = MagicMock()
+    mock_transaction_ctx.__enter__ = MagicMock(return_value=mock_conn)
+    mock_transaction_ctx.__exit__ = MagicMock(return_value=False)
+
     with (
         patch("src.services.doctor_service.DoctorRepository") as dr_cls,
         patch("src.services.doctor_service.DepartmentRepository") as dept_cls,
         patch("src.services.doctor_service.DoctorScheduleRepository") as sched_cls,
         patch("src.services.doctor_service.DoctorLeaveRepository") as leave_cls,
         patch("src.services.doctor_service.UserService") as user_svc_cls,
+        patch("src.services.doctor_service.DatabaseConnection") as db_cls,
     ):
         dr_cls.return_value = MagicMock()
         dept_cls.return_value = MagicMock()
         sched_cls.return_value = MagicMock()
         leave_cls.return_value = MagicMock()
         user_svc_cls.return_value = MagicMock()
+        db_cls.transaction.return_value = mock_transaction_ctx
         yield DoctorService()
 
 
@@ -173,6 +182,25 @@ class TestDoctorOperations:
             user_data={"username": "drjohn", "password": "secret123"},
         )
         assert success is True
+        assert doc_id == 1
+        # Verify both calls happened inside the same transaction context
+        user_svc.create_user.assert_called_once()
+        repo.create_doctor.assert_called_once()
+
+    def test_create_doctor_with_user_rollback(self, service: DoctorService, repo: MagicMock, user_svc: MagicMock) -> None:
+        """When user creation fails, doctor creation must not proceed (rollback)."""
+        user_svc.get_role_id.return_value = 2
+        user_svc.create_user.return_value = (False, "Username already exists", None)
+
+        success, msg, doc_id = service.create_doctor(
+            {"full_name": "Dr. Ghost", "department_id": 1},
+            user_data={"username": "taken", "password": "x"},
+        )
+        assert success is False
+        assert "exists" in msg.lower() or "failed" in msg.lower()
+        assert doc_id is None
+        # Doctor repo must never have been called — the failure rolled back before it
+        repo.create_doctor.assert_not_called()
 
     def test_update_doctor(self, service: DoctorService, repo: MagicMock) -> None:
         """Updating a doctor."""
