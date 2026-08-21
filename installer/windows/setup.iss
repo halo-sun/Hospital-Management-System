@@ -66,20 +66,20 @@ CloseApplications=force
 RestartApplications=no
 MinVersion=10.0.17763
 
-[ Languages ]
+[Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
-[ Tasks ]
+[Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
-[ Files ]
+[Files]
 ; ── Main application ─────────────────────────────────────────────────────
 Source: "{#MainDistDir}\\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 ; ── Setup utility ────────────────────────────────────────────────────────
 Source: "{#SetupDistDir}\\*"; DestDir: "{app}\\setup"; Flags: ignoreversion recursesubdirs createallsubdirs
 
-[ Icons ]
+[Icons]
 ; ── Start Menu ───────────────────────────────────────────────────────────
 Name: "{group}\\{#AppName}"; Filename: "{app}\\{#AppExeName}"; Comment: "Launch Hospital Management System"
 Name: "{group}\\Database Setup"; Filename: "{app}\\setup\\{#SetupExeName}"; Comment: "Run database setup wizard"
@@ -88,7 +88,7 @@ Name: "{group}\\{cm:UninstallProgram,{#AppName}}"; Filename: "{uninstallexe}"
 ; ── Desktop (optional) ──────────────────────────────────────────────────
 Name: "{autodesktop}\\{#AppName}"; Filename: "{app}\\{#AppExeName}"; Tasks: desktopicon
 
-[ Run ]
+[Run]
 ; ── Launch HMS-Setup.exe after installation ──────────────────────────────
 Filename: "{app}\\setup\\{#SetupExeName}"; \\
     Description: "Set up the database now (recommended)"; \\
@@ -99,13 +99,13 @@ Filename: "{app}\\{#AppExeName}"; \\
     Description: "Launch {#AppName}"; \\
     Flags: postinstall skipifsilent nowait unchecked
 
-[ UninstallDelete ]
+[UninstallDelete]
 ; Remove logs created by the application (but NOT user data by default)
 Type: filesandordirs; Name: "{app}\\logs"
 Type: filesandordirs; Name: "{app}\\reports"
 Type: filesandordirs; Name: "{app}\\exports"
 
-[ Code ]
+[Code]
 // ── Uninstall: ask about removing user data ────────────────────────────
 // The %LOCALAPPDATA%\\HospitalScheduler directory contains uploaded
 // patient documents, logs, and reports.  Deleting this without very
