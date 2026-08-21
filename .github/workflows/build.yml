@@ -103,19 +103,26 @@ jobs:
           echo "Building version: $VERSION"
 
       # ── 5b. Verify tag matches AppConfig.VERSION ──────────────
+      #    Pre-release suffixes (e.g. -debug1, -rc1) are allowed:
+      #    only the base version (before the first "-") must match.
       - name: Verify tag matches AppConfig.VERSION
         shell: bash
         run: |
           TAG_VERSION="${{ steps.version.outputs.version }}"
           # Extract AppConfig.VERSION from source (no import needed)
           CODE_VERSION=$(python -c "import re, pathlib; m=re.search(r'VERSION:\s*ClassVar\[str\]\s*=\s*\"([^\"]+)\"', pathlib.Path('src/config/settings.py').read_text()); print(m.group(1))")
+          # Extract base version: everything before the first "-" (strips pre-release suffixes)
+          TAG_BASE="${TAG_VERSION%%-*}"
           echo "Git tag version: $TAG_VERSION"
+          echo "Tag base version: $TAG_BASE"
           echo "AppConfig.VERSION: $CODE_VERSION"
-          if [ "$TAG_VERSION" != "$CODE_VERSION" ]; then
-            echo "::error::Version mismatch: git tag says '$TAG_VERSION' but AppConfig.VERSION is '$CODE_VERSION'. Bump AppConfig.VERSION in src/config/settings.py to match the tag."
+          if [ "$TAG_BASE" != "$CODE_VERSION" ]; then
+            echo "::error::Version mismatch: git tag base version '$TAG_BASE' does not match AppConfig.VERSION '$CODE_VERSION'. Bump AppConfig.VERSION in src/config/settings.py to match the tag."
             exit 1
           fi
-          echo "Versions match: $TAG_VERSION"
+          echo "Base versions match: $TAG_BASE"
+          # Also export BASE_VERSION so generate_iss.py can use it for the safety check
+          echo "BASE_VERSION=$TAG_BASE" >> "$GITHUB_OUTPUT"
 
       # ── 5c. Export BUILD_VERSION for generate_iss.py ──────────
       - name: Export BUILD_VERSION

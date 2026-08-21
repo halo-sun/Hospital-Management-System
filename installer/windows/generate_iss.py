@@ -24,12 +24,16 @@ from src.config.settings import AppConfig
 
 BUILD_VERSION: str = os.environ.get("BUILD_VERSION", "").strip()
 if BUILD_VERSION:
-    # Safety: fail early if the tag version doesn't match AppConfig.VERSION
-    # so genuine version-bump mistakes are caught before the installer is built.
-    if BUILD_VERSION != AppConfig.VERSION:
+    # Safety: fail early if the tag version's base (before any pre-release
+    # suffix like -debug1, -rc1) doesn't match AppConfig.VERSION, so
+    # genuine version-bump mistakes are caught before the installer is
+    # built.  Pre-release suffixes are allowed — only the base matters.
+    TAG_BASE = BUILD_VERSION.split("-", 1)[0]
+    if TAG_BASE != AppConfig.VERSION:
         print(
-            f"ERROR: BUILD_VERSION ('{BUILD_VERSION}') does not match "
-            f"AppConfig.VERSION ('{AppConfig.VERSION}').\n"
+            f"ERROR: tag base version ('{TAG_BASE}' from BUILD_VERSION="
+            f"'{BUILD_VERSION}') does not match AppConfig.VERSION "
+            f"('{AppConfig.VERSION}').\n"
             f"Bump AppConfig.VERSION in src/config/settings.py to match "
             f"the git tag, or vice versa.",
             file=sys.stderr,
