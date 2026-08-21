@@ -93,8 +93,8 @@ class DoctorManagementView(BaseView):
         # ── Stats summary ─────────────────────────────────────────
         stats_frame = ttk.Frame(self, style="TFrame", padding=(16, 8))
         stats_frame.pack(fill="x")
-        active = sum(1 for d in self._doctors if d.get("status") == DoctorStatus.ACTIVE)
-        total = len(self._doctors)
+        active = sum(1 for d in self._all_doctors if d.get("status") == DoctorStatus.ACTIVE)
+        total = len(self._all_doctors)
         ttk.Label(
             stats_frame,
             text=f"Total Doctors: {total}  |  Active: {active}",
