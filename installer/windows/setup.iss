@@ -11,7 +11,7 @@
 
 ; ── Metadata (mirrors AppConfig in src/config/settings.py) ───────────────
 #define AppName         "Hospital Management System"
-#define AppVersion      "1.0.1"
+#define AppVersion      "1.0.4"
 #define AppPublisher    "Sidd && Contributors"
 #define AppCopyright    "2026 Sidd && Contributors"
 #define AppDescription  "A desktop hospital management system for scheduling, patient records, clinical workflows, and analytics."
@@ -34,9 +34,9 @@ AppName={#AppName}
 AppVersion={#AppVersion}
 AppPublisher={#AppPublisher}
 AppCopyright={#AppCopyright}
-AppPublisherURL=https://github.com/your-username/HospitalSchedulingSystem
-AppSupportURL=https://github.com/your-username/HospitalSchedulingSystem/issues
-AppUpdatesURL=https://github.com/your-username/HospitalSchedulingSystem/releases
+AppPublisherURL=https://github.com/halo-sun/Hospital-Management-System
+AppSupportURL=https://github.com/halo-sun/Hospital-Management-System/issues
+AppUpdatesURL=https://github.com/halo-sun/Hospital-Management-System/releases
 
 ; ── Installation ─────────────────────────────────────────────────────────
 DefaultDirName={autopf}\\{#AppDirName}

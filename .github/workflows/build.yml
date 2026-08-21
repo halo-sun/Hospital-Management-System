@@ -132,6 +132,38 @@ jobs:
       - name: Build HMS-Setup.exe
         run: pyinstaller hms-setup.spec --noconfirm
 
+      # ── DIAGNOSTIC A: Dump dist folder contents immediately after PyInstaller ──
+      - name: DIAGNOSTIC - dump dist folder contents after PyInstaller
+        run: |
+          Write-Host "=== dist\HospitalScheduler ==="
+          Write-Host "File count:"
+          (Get-ChildItem -Recurse dist\HospitalScheduler -File | Measure-Object).Count
+          Write-Host "Total size:"
+          (Get-ChildItem -Recurse dist\HospitalScheduler -File | Measure-Object -Property Length -Sum).Sum
+          Write-Host "Full listing:"
+          Get-ChildItem -Recurse dist\HospitalScheduler | Select-Object FullName, Length | Format-Table -AutoSize
+          Write-Host "=== dist\HMS-Setup ==="
+          Write-Host "File count:"
+          (Get-ChildItem -Recurse dist\HMS-Setup -File | Measure-Object).Count
+          Write-Host "Total size:"
+          (Get-ChildItem -Recurse dist\HMS-Setup -File | Measure-Object -Property Length -Sum).Sum
+          Write-Host "Full listing:"
+          Get-ChildItem -Recurse dist\HMS-Setup | Select-Object FullName, Length | Format-Table -AutoSize
+          Write-Host "=== Confirm HospitalScheduler.exe exists ==="
+          if (Test-Path dist\HospitalScheduler\HospitalScheduler.exe) {
+            $f = Get-Item dist\HospitalScheduler\HospitalScheduler.exe
+            Write-Host "HospitalScheduler.exe: $($f.Length) bytes"
+          } else {
+            Write-Host "ERROR: HospitalScheduler.exe NOT FOUND in dist\HospitalScheduler"
+          }
+          if (Test-Path dist\HMS-Setup\HMS-Setup.exe) {
+            $f = Get-Item dist\HMS-Setup\HMS-Setup.exe
+            Write-Host "HMS-Setup.exe: $($f.Length) bytes"
+          } else {
+            Write-Host "ERROR: HMS-Setup.exe NOT FOUND in dist\HMS-Setup"
+          }
+        shell: pwsh
+
       # ── 8. Verify build outputs (fail loudly if empty/missing) ──────
       - name: Verify build outputs
         shell: bash
@@ -165,9 +197,68 @@ jobs:
       - name: Regenerate setup.iss from AppConfig
         run: python installer/windows/generate_iss.py
 
-      - name: Compile installer (Inno Setup)
+      # ── DIAGNOSTIC B: Dump setup.iss and check resolved paths from CI's CWD ──
+      - name: DIAGNOSTIC - dump setup.iss and resolved paths before ISCC
         run: |
-          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "installer\windows\setup.iss"
+          Write-Host "=== Current working directory ==="
+          Get-Location
+          Write-Host ""
+          Write-Host "=== setup.iss [Files] section (all lines) ==="
+          $content = Get-Content installer\windows\setup.iss
+          $inFiles = $false
+          foreach ($line in $content) {
+            if ($line -match '^\[Files\]') { $inFiles = $true }
+            if ($inFiles -and $line -match '^\[' -and $line -notmatch '^\[Files\]') { $inFiles = $false }
+            if ($inFiles) { Write-Host $line }
+          }
+          Write-Host ""
+          Write-Host "=== #define for MainDistDir / SetupDistDir ==="
+          Select-String -Path installer\windows\setup.iss -Pattern 'define.*(MainDistDir|SetupDistDir)' | ForEach-Object { Write-Host $_.Line }
+          Write-Host ""
+          Write-Host "=== Does dist\HospitalScheduler exist from CWD? ==="
+          Test-Path "dist\HospitalScheduler"
+          if (Test-Path "dist\HospitalScheduler") {
+            Write-Host "File count in dist\HospitalScheduler from CWD:"
+            (Get-ChildItem "dist\HospitalScheduler" -File | Measure-Object).Count
+          }
+          Write-Host ""
+          Write-Host "=== Does dist\HMS-Setup exist from CWD? ==="
+          Test-Path "dist\HMS-Setup"
+          if (Test-Path "dist\HMS-Setup") {
+            Write-Host "File count in dist\HMS-Setup from CWD:"
+            (Get-ChildItem "dist\HMS-Setup" -File | Measure-Object).Count
+          }
+          Write-Host ""
+          Write-Host "=== Full resolved path check ==="
+          Write-Host "Repo root CWD: $(Get-Location)"
+          Write-Host "installer\windows\setup.iss exists: $(Test-Path 'installer\windows\setup.iss')"
+          Write-Host "dist\HospitalScheduler exists: $(Test-Path 'dist\HospitalScheduler')"
+          Write-Host "dist\HMS-Setup exists: $(Test-Path 'dist\HMS-Setup')"
+        shell: pwsh
+
+      - name: Compile installer (Inno Setup) - VERBOSE
+        run: |
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /V9 "installer\windows\setup.iss"
+        shell: pwsh
+
+      # ── DIAGNOSTIC C: Inspect actual compiled installer contents ──
+      - name: DIAGNOSTIC - inspect compiled installer contents with 7-Zip
+        run: |
+          Write-Host "=== Installing 7-Zip ==="
+          choco install 7zip -y --no-progress
+          Write-Host ""
+          Write-Host "=== Looking for installer in dist\ ==="
+          Get-ChildItem dist\*-Setup.exe | ForEach-Object {
+            Write-Host "Found: $($_.FullName) ($($_.Length) bytes)"
+            Write-Host ""
+            Write-Host "=== Contents of $($_.Name) via 7z ==="
+            & "C:\Program Files\7-Zip\7z.exe" l $_.FullName
+          }
+          if (-not (Get-ChildItem dist\*-Setup.exe -ErrorAction SilentlyContinue)) {
+            Write-Host "ERROR: No *-Setup.exe found in dist\"
+            Write-Host "Contents of dist\:"
+            Get-ChildItem dist\ -Recurse | Select-Object FullName, Length | Format-Table -AutoSize
+          }
         shell: pwsh
 
       # ── 10. Verify installer exists ────────────────────────────
